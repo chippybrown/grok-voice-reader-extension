@@ -1,41 +1,24 @@
 # Grok Voice Reader
 
-A browser add-on that reads a new Grok reply out loud. It works in the tab you have open, including a Grok Bot chat at grok.com/bot. This build is **0.3.1**. The popup shows that number next to the title.
+A browser add-on that reads a new Grok reply out loud. It works in the tab you have open, including a Grok Bot chat at grok.com/bot. This build is **0.4.0**. The popup shows that number next to the title.
 
 You need Chrome, Edge, or Brave, and a speech voice already installed on the computer. Those browsers use the voices that come with Windows or macOS. In Edge, Jenny Online (Natural) is one of those voices.
 
-## Download
+## Install
 
-1. Download [Grok-Voice-Reader-Extension.zip](https://github.com/chippybrown/voice-reader-for-grokbot/releases/download/ext-v0.2.3/Grok-Voice-Reader-Extension.zip) from the [0.2.3 release](https://github.com/chippybrown/voice-reader-for-grokbot/releases/tag/ext-v0.2.3). On Windows you can instead run [Grok-Voice-Reader-Setup.exe](https://github.com/chippybrown/voice-reader-for-grokbot/releases/download/ext-v0.2.3/Grok-Voice-Reader-Setup.exe), which copies the files to `%LOCALAPPDATA%\Grok Voice Reader\extension`. On Linux, run [Grok-Voice-Reader-x86_64.AppImage](https://github.com/chippybrown/voice-reader-for-grokbot/releases/download/ext-v0.2.3/Grok-Voice-Reader-x86_64.AppImage), which copies them to `~/.local/share/grok-voice-reader/extension`.
-2. Unzip it. On Windows, right-click the zip and choose **Extract All**. On a Mac, double-click the zip.
-3. Put the unzipped folder somewhere you will not delete, such as **Documents**. The folder must contain a file named `manifest.json`.
+[![Coming soon to the Chrome Web Store](https://img.shields.io/badge/Coming%20soon%20to%20the%20Chrome%20Web%20Store-brightgreen?style=for-the-badge)](#coming-soon)
 
-Leave that folder where it is. The browser loads the extension from that place. If you move or delete the folder, the extension stops working.
+<!-- TODO: replace the badge link above with the Chrome Web Store listing URL after it is approved. -->
 
-## Install in Chrome
+<a id="coming-soon"></a>
 
-1. Open Chrome and go to `chrome://extensions`.
-2. Turn on **Developer mode**. The switch is in the top right.
-3. Click **Load unpacked**.
-4. Choose the unzipped folder (the one that contains `manifest.json`).
-5. Pin it so you can find it later. Click the puzzle-piece icon on the toolbar, find **Grok Voice Reader**, and click the pin.
+**Chrome:** Coming soon to the Chrome Web Store.
 
-## Install in Edge
+**Edge:** Open that listing, turn on **Allow extensions from other stores**, then click **Add**.
 
-1. Open Edge and go to `edge://extensions`.
-2. Turn on **Developer mode**. The switch is at the bottom of the left side.
-3. Click **Load unpacked**.
-4. Choose the same unzipped folder.
-5. Pin it. Click the puzzle-piece icon (or the eye icon) on the toolbar, find **Grok Voice Reader**, and turn the pin on.
+**Brave:** Open that listing and click **Add**.
 
-## Install in Brave
-
-1. Download [Grok-Voice-Reader-Extension.zip](https://github.com/chippybrown/voice-reader-for-grokbot/releases/download/ext-v0.2.3/Grok-Voice-Reader-Extension.zip) and unzip it. The unzipped folder must contain `manifest.json`. On Windows or Linux, the installer already put that folder in `%LOCALAPPDATA%\Grok Voice Reader\extension` or `~/.local/share/grok-voice-reader/extension`.
-2. Open Brave and go to `brave://extensions`.
-3. Turn on **Developer mode**.
-4. Click **Load unpacked**.
-5. Choose the unzipped folder.
-6. Refresh the Grok tab. The extension does not attach to a tab that was already open.
+Or install from GitHub. On Windows, run [Grok-Voice-Reader-Setup.exe](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest/download/Grok-Voice-Reader-Setup.exe). On Linux, run [Grok-Voice-Reader-x86_64.AppImage](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest/download/Grok-Voice-Reader-x86_64.AppImage). Or unzip [Grok-Voice-Reader-Extension.zip](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest/download/Grok-Voice-Reader-Extension.zip), turn on **Developer mode**, click **Load unpacked**, and pick the folder. Leave that folder where it is.
 
 ## First time you use it
 
