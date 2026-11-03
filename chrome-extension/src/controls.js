@@ -5,8 +5,11 @@
 
   var GV = root.GrokVoice || (root.GrokVoice = {});
   var READING_CLASS = "grok-voice-reading";
+  var PAUSE_CLASS = "grok-voice-paused";
   var DEBUG_CLASS = "grok-voice-debug-target";
-  var MARK_CLASSES = [READING_CLASS, DEBUG_CLASS];
+  var MARK_CLASSES = [READING_CLASS, PAUSE_CLASS, DEBUG_CLASS];
+  GV.OUTLINE_PLAY = "#3ddc84";
+  GV.OUTLINE_PAUSE = "#FFB366";
   var currentHost = null;
   var handlers = { onToggle: null };
 
@@ -81,7 +84,8 @@
     if (doc.getElementById("grok-voice-reading-style")) return;
     var style = doc.createElement("style");
     style.id = "grok-voice-reading-style";
-    style.textContent = "." + READING_CLASS + "{outline:3px solid #3ddc84 !important;outline-offset:3px !important;}";
+    style.textContent = "." + READING_CLASS + "{outline:3px solid " + GV.OUTLINE_PLAY + " !important;outline-offset:3px !important;}"
+      + "." + READING_CLASS + "." + PAUSE_CLASS + "{outline-color:" + GV.OUTLINE_PAUSE + " !important;}";
     (doc.head || doc.documentElement).appendChild(style);
   }
 
@@ -342,6 +346,8 @@
       return null;
     }
     element.classList.add(READING_CLASS);
+    if (GV.normalizeReadMode(options.readMode) === "pause") element.classList.add(PAUSE_CLASS);
+    else element.classList.remove(PAUSE_CLASS);
     anchor(element);
     if (!currentHost || !currentHost.isConnected) {
       discardHost();

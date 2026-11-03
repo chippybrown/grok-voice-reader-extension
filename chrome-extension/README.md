@@ -47,7 +47,7 @@ Leave that folder where it is. The browser loads the extension from that place. 
 
 ## Playing a reply
 
-Only one reply has the green outline. **Play/Pause** sits in the lower-right corner of that box.
+Only one reply is outlined. Play mode is green. Pause mode is light orange, including a new reply the outline moves to while paused. **Play/Pause** sits in the lower-right corner of that box.
 
 Click a different reply to outline it and read it from the start. That turns Play on. Click the outlined reply to pause, or to continue the same reply from where it stopped.
 

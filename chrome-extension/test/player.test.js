@@ -556,6 +556,29 @@ test("keepalive resume runs while Chrome is still speaking", async () => {
   queue.stop();
 });
 
+test("pause mode outlines the active reply in light orange", () => {
+  const doc = window.document;
+  const first = doc.getElementById("a");
+  const second = doc.getElementById("b");
+  const css = () => doc.getElementById("grok-voice-reading-style").textContent;
+  GV.placeReadingControls(doc, first, { mode: "playing", readMode: "play" });
+  assert.equal(first.classList.contains("grok-voice-reading"), true);
+  assert.equal(first.classList.contains("grok-voice-paused"), false);
+  assert.equal(css().includes(GV.OUTLINE_PLAY), true);
+  assert.equal(css().includes(GV.OUTLINE_PAUSE), true);
+  assert.equal(GV.OUTLINE_PAUSE, "#FFB366");
+  GV.placeReadingControls(doc, first, { mode: "paused", readMode: "pause" });
+  assert.equal(first.classList.contains("grok-voice-paused"), true);
+  GV.placeReadingControls(doc, second, { mode: "paused", readMode: "pause" });
+  assert.equal(first.classList.contains("grok-voice-reading"), false);
+  assert.equal(first.classList.contains("grok-voice-paused"), false);
+  assert.equal(second.classList.contains("grok-voice-reading"), true);
+  assert.equal(second.classList.contains("grok-voice-paused"), true);
+  GV.placeReadingControls(doc, second, { mode: "playing", readMode: "play" });
+  assert.equal(second.classList.contains("grok-voice-paused"), false);
+  assert.equal(second.classList.contains("grok-voice-reading"), true);
+});
+
 test("Piper is offered once when English voices are scarce", () => {
   const few = [
     { lang: "en-US", name: "A" },

@@ -29,7 +29,7 @@ Leave that folder where it is. If you move or delete it, the add-on stops workin
 
 ## Playing a reply
 
-Only one reply has a green outline. A **Play/Pause** button sits in the lower-right corner of that box. Hold the pointer on it to see Play or Pause.
+Only one reply is outlined. Play mode is green. Pause mode is light orange, including a new reply the outline moves to while paused. A **Play/Pause** button sits in the lower-right corner of that box. Hold the pointer on it to see Play or Pause.
 
 Click a different reply to move the outline there and read that reply from the beginning. That turns Play on. The outline and the button leave every other reply.
 

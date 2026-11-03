@@ -205,6 +205,7 @@
   function controlOptions() {
     return {
       mode: playback.state().mode,
+      readMode: readMode,
       onToggle: onToggle
     };
   }
@@ -256,7 +257,9 @@
       readingMode = "";
       return;
     }
-    if (readingEl === target && readingMode === mode && target.classList.contains("grok-voice-reading") && controlsOn(target)) return;
+    var wantPause = readMode === "pause";
+    if (readingEl === target && readingMode === mode && target.classList.contains("grok-voice-reading")
+        && target.classList.contains("grok-voice-paused") === wantPause && controlsOn(target)) return;
     readingEl = target;
     readingMode = mode;
     GV.placeReadingControls(document, target, controlOptions());
@@ -761,7 +764,10 @@
       if (!debug) clearDebug();
       scheduleScan();
     }
-    if (changes.readMode) readMode = GV.normalizeReadMode(changes.readMode.newValue);
+    if (changes.readMode) {
+      readMode = GV.normalizeReadMode(changes.readMode.newValue);
+      showReading();
+    }
     if (changes.enabled) applyEnabled(changes.enabled.newValue !== false);
   });
 
