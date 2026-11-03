@@ -1,0 +1,126 @@
+// Control bar planning: paragraph stepping, reply jumps, Stop/End, Auto End,
+// status light, shortcuts, and the Shadow DOM bar itself (jsdom).
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const test = require("node:test");
+const { JSDOM } = require("jsdom");
+
+const root = path.join(__dirname, "..");
+const FILES = ["src/config.js", "src/text.js", "src/controls.js", "src/toolbar.js"];
+
+function load(html) {
+  const dom = new JSDOM(html || "<!doctype html><body></body>", { runScripts: "outside-only", pretendToBeVisual: true });
+  for (const file of FILES) dom.window.eval(fs.readFileSync(path.join(root, file), "utf8"));
+  return { dom, GV: dom.window.GrokVoice };
+}
+
+const { GV } = load();
+const plain = (v) => JSON.parse(JSON.stringify(v));
+
+test("paragraph Forward steps inside a reply, then into the next reply", () => {
+  const counts = [2, 3];
+  assert.deepEqual(plain(GV.planParagraphStep({ reply: 0, para: 0 }, counts, 1)), { reply: 0, para: 1 });
+  assert.deepEqual(plain(GV.planParagraphStep({ reply: 0, para: 1 }, counts, 1)), { reply: 1, para: 0 });
+  assert.equal(GV.planParagraphStep({ reply: 1, para: 2 }, counts, 1), null, "past the newest paragraph means End");
+  assert.deepEqual(plain(GV.planParagraphStep({ reply: 1, para: -1 }, counts, 1)), { reply: 1, para: 0 });
+});
+
+test("paragraph Back crosses into the previous reply and stops at the top", () => {
+  const counts = [2, 0, 3];
+  assert.deepEqual(plain(GV.planParagraphStep({ reply: 2, para: 1 }, counts, -1)), { reply: 2, para: 0 });
+  assert.deepEqual(plain(GV.planParagraphStep({ reply: 2, para: 0 }, counts, -1)), { reply: 0, para: 1 }, "empty reply skipped");
+  assert.deepEqual(plain(GV.planParagraphStep({ reply: 0, para: 0 }, counts, -1)), { reply: 0, para: 0 });
+  assert.equal(GV.planParagraphStep({ reply: 0, para: 0 }, [], -1), null);
+});
+
+test("Shift jumps a whole reply", () => {
+  assert.deepEqual(plain(GV.planReplyJump({ reply: 1, para: 2 }, [2, 3, 1], -1)), { reply: 0, para: 0 });
+  assert.deepEqual(plain(GV.planReplyJump({ reply: 1, para: 2 }, [2, 3, 1], 1)), { reply: 2, para: 0 });
+  assert.equal(GV.planReplyJump({ reply: 2, para: 0 }, [2, 3, 1], 1), null);
+  assert.deepEqual(plain(GV.planReplyJump({ reply: 0, para: 1 }, [2, 3], -1)), { reply: 0, para: 0 });
+});
+
+test("Stop holds new replies quiet and unoutlined", () => {
+  assert.deepEqual(plain(GV.planNewReply("play", true)), { speak: false, highlight: false, readMode: "play" });
+  assert.deepEqual(plain(GV.planNewReply("play", false)), { speak: true, highlight: true, readMode: "play" });
+  assert.deepEqual(plain(GV.planNewReply("pause")), { speak: false, highlight: true, readMode: "pause" });
+});
+
+test("Auto End on a bot switch, unless turned off", () => {
+  assert.equal(GV.DEFAULTS.autoEndOnBotSwitch, true);
+  assert.equal(GV.planBotChange("", "bot:a", true), "none", "first bot in the tab");
+  assert.equal(GV.planBotChange("bot:a", "bot:a", true), "none");
+  assert.equal(GV.planBotChange("bot:a", "bot:b", undefined), "end");
+  assert.equal(GV.planBotChange("bot:a", "bot:b", false), "none");
+});
+
+test("status light matches the desktop app", () => {
+  assert.equal(GV.toolbarStatus({ enabled: true, mode: "stopped" }), "watching");
+  assert.equal(GV.toolbarStatus({ enabled: true, mode: "playing" }), "reading");
+  assert.equal(GV.toolbarStatus({ enabled: true, mode: "paused" }), "paused");
+  assert.equal(GV.toolbarStatus({ enabled: true, mode: "playing", stopHeld: true }), "stopped");
+  assert.equal(GV.toolbarStatus({ enabled: false, mode: "stopped" }), "stopped");
+  assert.equal(GV.STATUS_LIGHTS.watching.color, "#3ddc84");
+});
+
+test("bar shortcuts use Alt+Shift and never take P", () => {
+  const key = (code, extra) => Object.assign({ altKey: true, shiftKey: true, ctrlKey: false, metaKey: false, code }, extra);
+  assert.equal(GV.barShortcutAction(key("Comma")), "back");
+  assert.equal(GV.barShortcutAction(key("Period")), "forward");
+  assert.equal(GV.barShortcutAction(key("KeyS")), "stop");
+  assert.equal(GV.barShortcutAction(key("KeyE")), "end");
+  assert.equal(GV.barShortcutAction(key("KeyH")), "collapse");
+  assert.equal(GV.barShortcutAction(key("KeyP")), "");
+  assert.equal(GV.barShortcutAction(key("KeyS", { ctrlKey: true })), "");
+  assert.equal(GV.barShortcutAction(key("KeyS", { shiftKey: false })), "");
+});
+
+test("bar position stays on screen", () => {
+  assert.deepEqual(plain(GV.clampBarPosition({ x: -1, y: -1 }, 200, 36, 1000, 800)), { x: 776, y: 668 });
+  assert.deepEqual(plain(GV.clampBarPosition({ x: 5000, y: 5000 }, 200, 36, 1000, 800)), { x: 800, y: 764 });
+});
+
+test("paragraphs are the innermost blocks, and speech starts at one", () => {
+  const { dom, GV: G } = load("<!doctype html><body><div id=r><p dir=auto>One.</p><ul><li><p dir=auto>Two.</p></li><li>Three.</li></ul><h2>Four</h2><p></p></div></body>");
+  const body = dom.window.document.getElementById("r");
+  const paras = G.replyParagraphs(body);
+  assert.deepEqual(Array.from(paras, (p) => p.textContent), ["One.", "Two.", "Three.", "Four"]);
+  assert.match(G.speechFromParagraph(paras, 2), /^Three\.\s+Four/);
+  G.markParagraph(dom.window.document, paras[1]);
+  G.markParagraph(dom.window.document, paras[2]);
+  assert.equal(dom.window.document.querySelectorAll(".grok-voice-paragraph").length, 1);
+  assert.ok(paras[2].classList.contains("grok-voice-paragraph"));
+  G.markParagraph(dom.window.document, null);
+  assert.equal(dom.window.document.querySelectorAll(".grok-voice-paragraph").length, 0);
+});
+
+test("bar renders in a shadow root, sends actions, and collapses", () => {
+  const { dom, GV: G } = load();
+  const actions = [];
+  const saved = [];
+  const bar = G.createToolbar(dom.window.document, {
+    onAction: (name, event) => actions.push(name + (event && event.shiftKey ? "+shift" : "")),
+    save: (pos) => saved.push(pos)
+  });
+  const shadow = bar.host.shadowRoot;
+  assert.ok(shadow);
+  for (const a of ["back", "play-pause", "forward", "stop", "end", "summary"]) {
+    assert.ok(shadow.querySelector('[data-action="' + a + '"]'), a);
+  }
+  assert.equal(shadow.querySelector('[data-action="summary"]').disabled, true);
+  assert.match(shadow.querySelector('[data-action="stop"]').title, /Alt\+Shift\+S/);
+  shadow.querySelector('[data-action="back"]').dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, shiftKey: true }));
+  shadow.querySelector('[data-action="end"]').click();
+  shadow.querySelector('[data-action="summary"]').click();
+  assert.deepEqual(actions, ["back+shift", "end"]);
+  bar.update("reading");
+  assert.match(shadow.querySelector('[data-action="play-pause"]').title, /^Pause/);
+  bar.update("paused");
+  assert.match(shadow.querySelector('[data-action="play-pause"]').title, /^Play/);
+  shadow.querySelector('[data-action="collapse"]').click();
+  assert.ok(bar.host.classList.contains("collapsed"));
+  assert.equal(saved[saved.length - 1].collapsed, true);
+  shadow.querySelector('[data-action="expand"]').click();
+  assert.equal(bar.collapsed(), false);
+});
