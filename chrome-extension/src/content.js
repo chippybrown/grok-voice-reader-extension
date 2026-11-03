@@ -38,7 +38,6 @@
   var paraPos = { reply: -1, para: -1 };
   var lastBotId = "";
   var showBar = true;
-  var strip = null;
   var paraMarkedAt = 0;
 
   var playback = GV.createPlayback({
@@ -74,7 +73,7 @@
         if (paraPos.reply !== playback.state().index || paraPos.para !== i) paraMarkedAt = Date.now();
         paraPos = { reply: playback.state().index, para: i };
         GV.markParagraph(document, paras[i]);
-        updateStrip(paras[i]);
+        updateStrip();
         return;
       }
     }
@@ -83,7 +82,7 @@
   function clearPointer() {
     paraPos = { reply: -1, para: -1 };
     if (GV.markParagraph) GV.markParagraph(document, null);
-    if (strip) strip.hide();
+    updateStrip();
   }
 
   function paragraphCounts() {
@@ -110,7 +109,7 @@
     paraMarkedAt = Date.now();
     if (paras[target.para]) GV.markParagraph(document, paras[target.para]);
     updateBar();
-    updateStrip(paras[target.para]);
+    updateStrip();
     return true;
   }
 
@@ -161,21 +160,15 @@
     updateStrip();
   }
 
-  // Paragraph strip: |< ||/> >| >>| on the marked paragraph while reading
-  // or paused. Follows the "Show on-page control bar" switch.
-  function updateStrip(para) {
-    if (!GV.createParagraphStrip || !document.body) return;
+  // Corner controls: |< ||/> >| >>| at the reply's lower right while
+  // reading or paused. Follows the "Show on-page control bar" switch.
+  function updateStrip() {
+    if (!GV.setCornerExtras) return;
     var status = GV.toolbarStatus({ enabled: watching, mode: playback.state().mode, stopHeld: stopHeld });
-    if (!GV.stripWanted(status, showBar)) {
-      if (strip) strip.hide();
-      return;
-    }
-    if (!strip) strip = GV.createParagraphStrip(document, { onAction: onBarAction });
-    var target = para || document.querySelector(".grok-voice-paragraph") || strip.owner();
-    strip.show(target, status);
+    GV.setCornerExtras(GV.stripWanted(status, showBar));
   }
 
-  // |< on the strip: restart the paragraph if more than 2 s in.
+  // |< on the corner controls: restart the paragraph if more than 2 s in.
   function stripBack() {
     var partway = paraMarkedAt && Date.now() - paraMarkedAt > 2000;
     var plan = GV.planStripBack(currentPos(), paragraphCounts(), partway);
@@ -389,7 +382,8 @@
     return {
       mode: playback.state().mode,
       readMode: readMode,
-      onToggle: onToggle
+      onToggle: onToggle,
+      onAction: onBarAction
     };
   }
 

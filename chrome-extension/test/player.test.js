@@ -256,8 +256,10 @@ test("the composer bar has no playback buttons", () => {
   assert.equal(host.style.right, "8px");
   assert.equal(host.style.bottom, "8px");
   assert.equal(reply.style.position, "relative");
-  const buttons = host.shadowRoot.querySelectorAll("button");
+  // 0.4.3: one Play/Pause plus |< >| >>| that only show while reading.
+  const buttons = host.shadowRoot.querySelectorAll('[data-action="play-pause"]');
   assert.equal(buttons.length, 1);
+  assert.equal(host.shadowRoot.querySelectorAll("button:not(.x)").length, 1);
   const pause = buttons[0];
   assert.equal(pause.getAttribute("data-action"), "play-pause");
   assert.equal(pause.title, "Pause");

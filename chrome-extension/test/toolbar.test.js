@@ -154,27 +154,23 @@ test("strip shows only while reading or paused, and follows the bar switch", () 
   assert.equal(GV.stripWanted("reading", false), false);
 });
 
-test("paragraph strip sits above the paragraph corner and sends actions", () => {
-  const { dom, GV: G } = load("<!doctype html><body><p id=a>One two.</p><p id=b>Three.</p></body>");
+test("corner Play/Pause grows to |< ||/> >| >>| while reading and sends actions", () => {
+  const { dom, GV: G } = load("<!doctype html><body><div id=r><p>One two.</p></div></body>");
   const doc = dom.window.document;
   const seen = [];
-  const strip = G.createParagraphStrip(doc, { onAction: (a) => seen.push(a) });
-  const a = doc.getElementById("a");
-  strip.show(a, "reading");
-  assert.equal(strip.host.parentNode, a);
-  assert.equal(a.style.position, "relative");
-  assert.equal(strip.host.style.top, "-26px", "above the text, not on it");
-  assert.equal(a.textContent, "One two.", "strip adds no text to the paragraph");
-  const buttons = [...strip.host.shadowRoot.querySelectorAll("button")].map((b) => b.getAttribute("data-action"));
-  assert.deepEqual(buttons, ["strip-back", "play-pause", "forward", "end"]);
-  for (const b of strip.host.shadowRoot.querySelectorAll("button")) b.click();
-  assert.deepEqual(seen, buttons);
-  assert.equal(strip.host.shadowRoot.querySelector('[data-action="play-pause"]').title, "Pause");
-  strip.show(a, "paused");
-  assert.equal(strip.host.shadowRoot.querySelector('[data-action="play-pause"]').title, "Play");
-  strip.show(doc.getElementById("b"), "reading");
-  assert.equal(a.style.position, "", "old paragraph restored");
-  strip.show(doc.getElementById("b"), "stopped");
-  assert.equal(strip.host.parentNode, null);
-  assert.equal(doc.getElementById("b").style.position, "");
+  const r = doc.getElementById("r");
+  const host = G.placeReadingControls(doc, r, { mode: "playing", onToggle: () => seen.push("toggle"), onAction: (a) => seen.push(a) });
+  const shadow = host.shadowRoot;
+  const actions = [...shadow.querySelectorAll("button")].map((b) => b.getAttribute("data-action"));
+  assert.deepEqual(actions, ["strip-back", "play-pause", "forward", "end"], "one play/pause, no duplicate");
+  assert.equal(host.hasAttribute("data-extras"), false, "extras hidden until reading");
+  G.setCornerExtras(true);
+  assert.equal(host.getAttribute("data-extras"), "1");
+  assert.equal(host.style.bottom, "8px");
+  assert.equal(host.style.right, "8px");
+  for (const b of shadow.querySelectorAll("button")) b.click();
+  assert.deepEqual(seen, ["strip-back", "toggle", "forward", "end"]);
+  assert.equal(doc.querySelectorAll("[data-grok-voice-controls=strip]").length, 0, "no separate strip");
+  G.setCornerExtras(false);
+  assert.equal(host.hasAttribute("data-extras"), false);
 });

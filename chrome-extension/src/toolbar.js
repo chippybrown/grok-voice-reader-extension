@@ -1,4 +1,4 @@
-// Rev 20261103 - paragraph strip added (Grok and Eldon R. Brown - WA0UWH)
+// Rev 20261103 - paragraph controls merged into the corner button (controls.js) (Grok and Eldon R. Brown - WA0UWH)
 // On-page control bar, modeled on the desktop Grokbot Voice toolbar:
 // Back, Pause/Play, Forward, Stop, End, a status light, and a spare slot
 // for Summarize/Verbose later. It lives in a Shadow DOM host so Grok CSS
@@ -86,7 +86,7 @@
     return { reply: next, para: 0 };
   };
 
-  // Paragraph strip Back (|<): restart this paragraph when partway in,
+  // Corner Back (|<): restart this paragraph when partway in,
   // else step back one paragraph like the bar's Back.
   GV.planStripBack = function planStripBack(pos, counts, partway) {
     if (partway && pos && pos.reply >= 0) return { reply: pos.reply, para: pos.para >= 0 ? pos.para : 0 };
@@ -97,78 +97,6 @@
   GV.stripWanted = function stripWanted(status, showBar) {
     if (showBar === false) return false;
     return status === "reading" || status === "paused";
-  };
-
-  var STRIP_CSS =
-    ":host{all:initial;}" +
-    ".strip{display:flex;gap:2px;padding:2px;border-radius:7px;background:rgba(15,15,15,.85);opacity:.35;transition:opacity .15s;}" +
-    ".strip:hover,.strip:focus-within{opacity:1;}" +
-    "button{width:20px;height:20px;padding:0;border:0;border-radius:5px;background:transparent;cursor:pointer;}" +
-    "button:hover,button:focus-visible{background:rgba(255,255,255,.18);outline:none;}" +
-    "svg{width:14px;height:14px;fill:#fff;display:block;margin:3px auto;}";
-
-  // Small |< ||/> >| >>| strip just above the marked paragraph's top-right
-  // corner, so it never sits on the words. options.onAction gets
-  // strip-back, play-pause, forward, end.
-  GV.createParagraphStrip = function createParagraphStrip(doc, options) {
-    options = options || {};
-    var t = tips();
-    var host = doc.createElement("div");
-    host.setAttribute("data-grok-voice-controls", "strip");
-    host.setAttribute("role", "toolbar");
-    host.setAttribute("aria-label", "Paragraph controls");
-    host.style.cssText = "position:absolute;right:0;top:-26px;left:auto;margin:0;z-index:2147483646;display:block;";
-    var shadow = host.attachShadow({ mode: "open" });
-    var backTip = "Back: restart this paragraph, or previous paragraph";
-    shadow.innerHTML = "<style>" + STRIP_CSS + "</style><div class=\"strip\">" +
-      button("strip-back", GV.controlIcon("previous"), backTip) +
-      button("play-pause", GV.controlIcon("pause"), t.pause) +
-      button("forward", GV.controlIcon("next"), "Forward one paragraph") +
-      button("end", GV.controlIcon("end"), "Go to End") + "</div>";
-    var toggle = shadow.querySelector('[data-action="play-pause"]');
-    var owner = null;
-    shadow.addEventListener("click", function (event) {
-      var el = event.target && event.target.closest ? event.target.closest("[data-action]") : null;
-      if (!el) return;
-      event.preventDefault();
-      event.stopPropagation();
-      if (options.onAction) options.onAction(el.getAttribute("data-action"), event);
-    });
-    function release() {
-      if (owner && owner.hasAttribute("data-grok-voice-strip-pos")) {
-        owner.style.position = owner.getAttribute("data-grok-voice-strip-pos");
-        owner.removeAttribute("data-grok-voice-strip-pos");
-      }
-      owner = null;
-    }
-    return {
-      host: host,
-      // Put the strip on `para` with status reading|paused. Anything else hides it.
-      show: function show(para, status) {
-        if (!para || !GV.stripWanted(status)) return this.hide();
-        if (owner !== para) {
-          release();
-          owner = para;
-          var view = doc.defaultView;
-          var posStyle = "static";
-          try { posStyle = view.getComputedStyle(para).position || "static"; } catch (err) { posStyle = "static"; }
-          if (posStyle === "static") {
-            para.setAttribute("data-grok-voice-strip-pos", para.style.position || "");
-            para.style.position = "relative";
-          }
-        }
-        if (host.parentNode !== para) para.appendChild(host);
-        var playing = status === "reading";
-        toggle.innerHTML = GV.controlIcon(playing ? "pause" : "play");
-        toggle.title = playing ? "Pause" : "Play";
-        toggle.setAttribute("aria-label", toggle.title);
-      },
-      hide: function hide() {
-        if (host.parentNode) host.parentNode.removeChild(host);
-        release();
-      },
-      owner: function () { return owner; }
-    };
   };
 
   // Popup switch "Show on-page control bar". Missing means on.
