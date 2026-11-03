@@ -17,7 +17,10 @@
     previous: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"></path></svg>',
     play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>',
     pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>',
-    next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path></svg>'
+    next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path></svg>',
+    stop: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6z"></path></svg>',
+    end: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6l7 6-7 6zm7 0l7 6-7 6z"></path><path d="M5 19h14v2H5z"></path></svg>',
+    summary: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z"></path></svg>'
   };
 
   GV.controlIcon = function controlIcon(name) {
@@ -47,8 +50,10 @@
 
   // Pause holds new replies quiet and still moves the outline onto them.
   // Play reads them as they arrive.
-  GV.planNewReply = function planNewReply(readMode) {
+  // After Stop nothing is outlined or spoken until Play or a reply click.
+  GV.planNewReply = function planNewReply(readMode, stopHeld) {
     var mode = GV.normalizeReadMode(readMode);
+    if (stopHeld) return { speak: false, highlight: false, readMode: mode };
     return { speak: mode === "play", highlight: true, readMode: mode };
   };
 

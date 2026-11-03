@@ -50,6 +50,17 @@
     next: "Alt+Right"
   };
 
+  // On-page control bar (src/toolbar.js). These are page keys, not
+  // manifest commands, so they work only while the Grok tab has focus.
+  // Alt+Shift+P stays the manifest play/pause command.
+  GV.BAR_SHORTCUTS = {
+    back: "Alt+Shift+,",
+    forward: "Alt+Shift+.",
+    stop: "Alt+Shift+S",
+    end: "Alt+Shift+E",
+    collapse: "Alt+Shift+H"
+  };
+
   GV.DEFAULTS = {
     enabled: true,
     voiceURI: "",
@@ -59,6 +70,8 @@
     newBotsAutoRead: true,
     betaUpdates: false,
     piperPromptDismissed: false,
+    autoEndOnBotSwitch: true,
+    toolbar: { x: -1, y: -1, collapsed: false },
     bots: {}
   };
 

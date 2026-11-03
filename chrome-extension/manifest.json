@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Grok Voice Reader",
-  "version": "0.4.0",
+  "version": "0.4.1",
+  "version_name": "0.4.1-WA0UWH",
   "description": "Reads a new Grok reply aloud in the tab that is open.",
   "permissions": ["storage", "offscreen"],
   "host_permissions": [
@@ -72,6 +73,7 @@
         "src/playback.js",
         "src/bots.js",
         "src/controls.js",
+        "src/toolbar.js",
         "src/piper.js",
         "src/content.js"
       ],
