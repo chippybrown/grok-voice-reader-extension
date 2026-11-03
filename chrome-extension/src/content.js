@@ -164,10 +164,16 @@
   function controlOptions() {
     return {
       mode: playback.state().mode,
-      onPrevious: function () { playback.previous(); },
-      onToggle: function () { playback.toggle(); showReading(); },
-      onNext: function () { playback.next(); }
+      onToggle: function () { playback.toggle(); showReading(); }
     };
+  }
+
+  function replyBody(item) {
+    return item && (item.body || item.element);
+  }
+
+  function controlsOn(target) {
+    return Boolean(target && target.querySelector && target.querySelector("[data-grok-voice-controls]"));
   }
 
   function showReading(element) {
@@ -179,10 +185,45 @@
       readingMode = "";
       return;
     }
-    if (readingEl === target && readingMode === mode && target.classList.contains("grok-voice-reading")) return;
+    if (readingEl === target && readingMode === mode && target.classList.contains("grok-voice-reading") && controlsOn(target)) return;
     readingEl = target;
     readingMode = mode;
     GV.placeReadingControls(document, target, controlOptions());
+  }
+
+  function findReplyElement(node) {
+    var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
+    if (!el) return null;
+    var i;
+    for (i = replyItems.length - 1; i >= 0; i--) {
+      var body = replyBody(replyItems[i]);
+      if (body && (body === el || (body.contains && body.contains(el)))) return body;
+    }
+    return null;
+  }
+
+  function itemForElement(element) {
+    var i;
+    for (i = 0; i < replyItems.length; i++) {
+      if (replyBody(replyItems[i]) === element) return replyItems[i];
+    }
+    return null;
+  }
+
+  // Another reply starts from the beginning. The outlined reply pauses
+  // or continues from the sentence it stopped on.
+  function onReplyClick(element) {
+    var active = playback.state().body || readingEl;
+    var action = GV.replyClickAction(active, element);
+    if (action === "toggle") {
+      playback.toggle();
+      showReading();
+      return;
+    }
+    if (action !== "start") return;
+    var item = itemForElement(element);
+    if (!item) return;
+    playback.playFromStart(item.key);
   }
 
   function pauseSpeech() {
@@ -583,16 +624,7 @@
   });
 
   function boot() {
-    if (GV.bindReplyClick) {
-      GV.bindReplyClick(document, function (node) {
-        var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
-        return Boolean(readingEl && el && readingEl.contains(el));
-      }, function () {
-        playback.toggle();
-        showReading();
-      });
-    }
-    if (GV.watchComposer) GV.watchComposer(document, controlOptions);
+    if (GV.bindReplyClick) GV.bindReplyClick(document, findReplyElement, onReplyClick);
     startObserver();
     var synth = getSynth();
     if (synth && synth.addEventListener) {

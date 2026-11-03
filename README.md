@@ -29,15 +29,13 @@ Leave that folder where it is. If you move or delete it, the add-on stops workin
 
 ## Playing a reply
 
-The message bar has **Previous**, **Play/Pause**, and **Next**.
+The reply that is being read has a green outline. A **Play/Pause** button sits in the lower-right corner of that box. Hold the pointer on it to see Play or Pause.
 
-Click the reply to play it or pause it. Pause keeps your place. Play starts again from that place.
+Click a different reply to move the outline there and start reading that reply from the beginning. The outline and the button leave the reply you were on.
 
-The keyboard does the same thing:
+Click inside the reply that is already outlined to pause or to continue. Pause keeps your place. Play continues from that place. A new reply is still read on its own, and the outline moves to it.
 
-- **Alt+Left** plays the previous reply
-- **Alt+Shift+P** plays or pauses
-- **Alt+Right** plays the next reply
+**Alt+Shift+P** plays or pauses. **Alt+Left** and **Alt+Right** go to the previous or next reply from the keyboard.
 
 ## Each bot
 

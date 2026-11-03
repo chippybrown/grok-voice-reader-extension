@@ -205,6 +205,35 @@ test("the green outline follows the reply being read", () => {
   assert.equal(second.classList.contains("grok-voice-reading"), false);
 });
 
+test("clicking a different reply starts it from the beginning", () => {
+  const spoken = [];
+  let resumes = 0;
+  const playback = GV.createPlayback({
+    onSpeak: function (text) { spoken.push(text); },
+    onPause: function () { return true; },
+    onResume: function () { resumes += 1; return true; }
+  });
+  playback.setItems([
+    { key: "a", speech: "First reply here.", body: { id: "a" } },
+    { key: "b", speech: "Second reply here.", body: { id: "b" } }
+  ]);
+  assert.equal(playback.playFromStart("b"), "Second reply here.");
+  assert.equal(playback.state().key, "b");
+  assert.equal(playback.state().mode, "playing");
+  playback.toggle();
+  assert.equal(playback.state().mode, "paused");
+  assert.equal(GV.replyClickAction(playback.state().body, playback.state().body), "toggle");
+  assert.equal(GV.replyClickAction(playback.state().body, { id: "a" }), "start");
+  assert.equal(GV.replyClickAction(playback.state().body, null), "ignore");
+  assert.equal(playback.playFromStart("a"), "First reply here.");
+  assert.equal(playback.state().key, "a");
+  assert.equal(playback.state().mode, "playing");
+  assert.equal(resumes, 0);
+  assert.deepEqual(spoken, ["Second reply here.", "First reply here."]);
+  assert.equal(playback.playFromStart("missing"), "");
+  assert.equal(playback.state().key, "a");
+});
+
 function composerMarkup() {
   return '<button id="add" type="button">+</button>' +
     '<textarea id="message" placeholder="Message Moya"></textarea>' +
@@ -212,109 +241,63 @@ function composerMarkup() {
     '<button id="voice" type="button" aria-label="Voice mode"></button>';
 }
 
-test("controls are injected between the mic and the voice button and survive a re-render", async () => {
+test("the composer bar has no playback buttons", () => {
   const doc = window.document;
   const box = doc.createElement("div");
   box.id = "composer";
   box.innerHTML = composerMarkup();
   doc.body.appendChild(box);
-  const host = GV.mountTransport(doc, { mode: "playing" });
-  const voice = doc.getElementById("voice");
-  const mic = doc.getElementById("mic");
-  const field = doc.getElementById("message");
-  assert.equal(host.getAttribute("data-grok-voice-placement"), "composer");
-  assert.equal(host.nextElementSibling, voice);
-  assert.equal(host.previousElementSibling, mic);
-  assert.equal(host.parentNode, box);
-  field.value = "still typing";
-  assert.equal(field.value, "still typing");
-  const pause = host.shadowRoot.querySelector('[data-action="play-pause"]');
-  assert.equal(pause.getAttribute("aria-label"), "Pause");
+  const reply = doc.getElementById("a");
+  const host = GV.placeReadingControls(doc, reply, { mode: "playing" });
+  assert.equal(box.querySelector("[data-grok-voice-controls]"), null);
+  assert.equal(doc.getElementById("mic").nextElementSibling.id, "voice");
+  assert.equal(host.parentNode, reply);
+  assert.equal(host.style.position, "absolute");
+  assert.equal(host.style.right, "8px");
+  assert.equal(host.style.bottom, "8px");
+  assert.equal(reply.style.position, "relative");
+  const buttons = host.shadowRoot.querySelectorAll("button");
+  assert.equal(buttons.length, 1);
+  const pause = buttons[0];
+  assert.equal(pause.getAttribute("data-action"), "play-pause");
   assert.equal(pause.title, "Pause");
-  assert.equal(pause.querySelector(".tip"), null);
-  const previous = host.shadowRoot.querySelector('[data-action="previous"]');
-  const next = host.shadowRoot.querySelector('[data-action="next"]');
-  assert.equal(previous.title, "Previous");
-  assert.equal(next.title, "Next");
-  GV.watchComposer(doc, function () { return { mode: "paused" }; });
-  box.innerHTML = composerMarkup();
-  await delay(30);
-  const again = doc.querySelector("[data-grok-voice-controls]");
-  assert.ok(again);
-  assert.equal(again.getAttribute("data-grok-voice-placement"), "composer");
-  assert.equal(again.previousElementSibling.id, "mic");
-  assert.equal(again.nextElementSibling.id, "voice");
-  assert.equal(doc.getElementById("message").placeholder, "Message Moya");
+  assert.equal(pause.getAttribute("aria-label"), "Pause");
+  assert.equal(pause.title.includes("Alt"), false);
+  assert.equal(host.shadowRoot.querySelector('[data-action="previous"]'), null);
+  assert.equal(host.shadowRoot.querySelector('[data-action="next"]'), null);
+  GV.placeReadingControls(doc, reply, { mode: "paused" });
+  assert.equal(pause.title, "Play");
+  assert.equal(pause.getAttribute("aria-label"), "Play");
 });
 
-function setRect(el, x, y, w, h) {
-  el.getBoundingClientRect = function () {
-    return { top: y, left: x, right: x + w, bottom: y + h, width: w, height: h, x: x, y: y };
-  };
-}
-
-test("controls stay in flow between the mic and the voice button", () => {
+test("the corner button moves with the outline and one click does not toggle twice", () => {
   const doc = window.document;
-  const host = doc.querySelector("[data-grok-voice-controls]");
-  const mic = doc.getElementById("mic");
-  const voice = doc.getElementById("voice");
-  assert.ok(host && mic && voice);
-  setRect(mic, 400, 280, 32, 32);
-  setRect(voice, 560, 276, 40, 40);
-  setRect(host, 448, 280, 88, 28);
-  Object.defineProperty(window, "innerWidth", { configurable: true, value: 800 });
-  Object.defineProperty(window, "innerHeight", { configurable: true, value: 600 });
-  GV.mountTransport(doc, { mode: "playing" });
-  assert.equal(host.style.position, "relative");
-  assert.notEqual(host.style.position, "fixed");
-  assert.notEqual(host.style.position, "absolute");
-  assert.equal(host.style.alignItems, "center");
-  assert.equal(host.style.alignSelf, "flex-end");
-  assert.equal(host.style.marginLeft, host.style.marginRight);
-  assert.equal(parseFloat(host.style.marginLeft) > 0, true);
-  assert.equal(parseFloat(host.style.height), 40);
-  assert.equal(host.style.transform, "translateY(2px)");
-  assert.equal(host.previousElementSibling.id, "mic");
-  assert.equal(host.nextElementSibling.id, "voice");
+  const first = doc.getElementById("a");
+  const second = doc.getElementById("b");
   let toggles = 0;
-  GV.mountTransport(doc, {
+  const host = GV.placeReadingControls(doc, first, {
     mode: "playing",
     onToggle: function () { toggles += 1; }
   });
+  assert.equal(first.classList.contains("grok-voice-reading"), true);
+  GV.placeReadingControls(doc, second, {
+    mode: "paused",
+    onToggle: function () { toggles += 1; }
+  });
+  assert.equal(first.classList.contains("grok-voice-reading"), false);
+  assert.equal(first.querySelector("[data-grok-voice-controls]"), null);
+  assert.equal(first.style.position, "");
+  assert.equal(second.classList.contains("grok-voice-reading"), true);
+  assert.equal(host.parentNode, second);
+  assert.equal(second.querySelectorAll("[data-grok-voice-controls]").length, 1);
   const play = host.shadowRoot.querySelector('[data-action="play-pause"]');
+  assert.equal(play.title, "Play");
   play.dispatchEvent(new window.MouseEvent("click", { bubbles: true, composed: true }));
   play.dispatchEvent(new window.MouseEvent("click", { bubbles: true, composed: true }));
+  mouse(host, "mousedown", 12, 12, 1);
+  mouse(host, "mouseup", 12, 12, 1);
   assert.equal(toggles, 1);
-  setRect(mic, 0, 0, 0, 0);
-  setRect(voice, 0, 0, 0, 0);
-  setRect(host, 0, 0, 0, 0);
-  GV.mountTransport(doc, { mode: "playing" });
-  assert.equal(host.style.position, "relative");
-  assert.equal(host.style.height, "");
-  assert.equal(host.style.transform, "none");
-  assert.equal(host.style.marginLeft, host.style.marginRight);
-});
-
-test("controls sit above the composer when the mic and voice buttons are missing", () => {
-  const doc = window.document;
-  const rich = doc.getElementById("composer");
-  if (rich) rich.remove();
-  const stale = doc.querySelector("[data-grok-voice-controls]");
-  if (stale) stale.remove();
-  const plain = doc.createElement("div");
-  plain.id = "plain-composer";
-  plain.innerHTML = '<textarea placeholder="Message Moya"></textarea>';
-  plain.getBoundingClientRect = function () {
-    return { top: 500, left: 80, right: 700, bottom: 560, width: 620, height: 60, x: 80, y: 500 };
-  };
-  doc.body.appendChild(plain);
-  Object.defineProperty(window, "innerWidth", { configurable: true, value: 800 });
-  Object.defineProperty(window, "innerHeight", { configurable: true, value: 600 });
-  const host = GV.mountTransport(doc, { mode: "stopped" });
-  assert.equal(host.getAttribute("data-grok-voice-placement"), "above");
-  assert.equal(host.style.position, "fixed");
-  assert.equal(parseFloat(host.style.top), 464);
-  assert.equal(parseFloat(host.style.left), 604);
+  doc.__grokVoiceControlsPress = 0;
 });
 
 function delay(ms) {
@@ -332,53 +315,111 @@ function mouse(target, type, x, y, detail) {
   }));
 }
 
-let replyClicks = 0;
-let clickRoot = null;
+const replyList = [];
+const replyClicks = [];
 GV.bindReplyClick(window.document, function (node) {
   const el = node && node.nodeType === 1 ? node : node && node.parentElement;
-  return Boolean(clickRoot && el && clickRoot.contains(el));
-}, function () { replyClicks += 1; });
+  if (!el) return null;
+  for (let i = replyList.length - 1; i >= 0; i--) {
+    if (replyList[i] === el || replyList[i].contains(el)) return replyList[i];
+  }
+  return null;
+}, function (reply) { replyClicks.push(reply); });
 
 test("a quick click on the outlined reply toggles play", async () => {
-  clickRoot = window.document.getElementById("a");
-  replyClicks = 0;
-  mouse(clickRoot, "mousedown", 12, 12, 1);
-  mouse(clickRoot, "mouseup", 13, 12, 1);
+  const reply = window.document.getElementById("a");
+  replyList.splice(0, replyList.length, reply);
+  replyClicks.length = 0;
+  mouse(reply, "mousedown", 12, 12, 1);
+  mouse(reply, "mouseup", 13, 12, 1);
   await delay(320);
-  assert.equal(replyClicks, 1);
+  assert.equal(replyClicks.length, 1);
+  assert.equal(replyClicks[0], reply);
+  assert.equal(GV.replyClickAction(reply, replyClicks[0]), "toggle");
+});
+
+test("a click on another reply selects that reply instead of toggling", async () => {
+  const doc = window.document;
+  const first = doc.getElementById("a");
+  const second = doc.getElementById("b");
+  first.textContent = "First assistant reply.";
+  second.textContent = "Second assistant reply.";
+  replyList.splice(0, replyList.length, first, second);
+  replyClicks.length = 0;
+  GV.placeReadingControls(doc, first, { mode: "playing" });
+  mouse(second, "mousedown", 20, 20, 1);
+  mouse(second, "mouseup", 21, 20, 1);
+  await delay(320);
+  assert.deepEqual(replyClicks, [second]);
+  assert.equal(GV.replyClickAction(first, second), "start");
+  GV.placeReadingControls(doc, second, { mode: "playing" });
+  assert.equal(first.classList.contains("grok-voice-reading"), false);
+  assert.equal(first.querySelector("[data-grok-voice-controls]"), null);
+  assert.equal(second.classList.contains("grok-voice-reading"), true);
+  assert.equal(second.querySelector("[data-grok-voice-controls]").style.position, "absolute");
+  replyClicks.length = 0;
+  mouse(first, "mousedown", 8, 8, 1);
+  mouse(first, "mouseup", 9, 8, 1);
+  await delay(320);
+  assert.deepEqual(replyClicks, [first]);
+  assert.equal(GV.replyClickAction(second, first), "start");
 });
 
 test("dragging across the reply does not toggle play", async () => {
-  clickRoot = window.document.getElementById("a");
-  clickRoot.textContent = "Select this reply text instead of toggling.";
-  replyClicks = 0;
-  mouse(clickRoot, "mousedown", 8, 8, 1);
-  mouse(clickRoot, "mouseup", 40, 18, 1);
+  const reply = window.document.getElementById("a");
+  reply.textContent = "Select this reply text instead of toggling.";
+  replyList.splice(0, replyList.length, reply);
+  replyClicks.length = 0;
+  mouse(reply, "mousedown", 8, 8, 1);
+  mouse(reply, "mouseup", 40, 18, 1);
   await delay(320);
-  assert.equal(replyClicks, 0);
+  assert.equal(replyClicks.length, 0);
+});
+
+test("a text selection inside the reply does not toggle play", async () => {
+  const doc = window.document;
+  const reply = doc.getElementById("a");
+  reply.textContent = "Select this reply text instead of toggling.";
+  replyList.splice(0, replyList.length, reply);
+  const text = reply.firstChild;
+  const range = doc.createRange();
+  range.setStart(text, 0);
+  range.setEnd(text, 6);
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+  assert.equal(selection.isCollapsed, false);
+  replyClicks.length = 0;
+  mouse(reply, "mousedown", 12, 12, 1);
+  mouse(reply, "mouseup", 14, 12, 1);
+  await delay(320);
+  assert.equal(replyClicks.length, 0);
+  selection.removeAllRanges();
 });
 
 test("a double-click does not toggle play", async () => {
-  clickRoot = window.document.getElementById("a");
-  replyClicks = 0;
-  mouse(clickRoot, "mousedown", 12, 12, 1);
-  mouse(clickRoot, "mouseup", 12, 12, 1);
-  mouse(clickRoot, "mousedown", 12, 12, 2);
-  mouse(clickRoot, "mouseup", 12, 12, 2);
-  clickRoot.dispatchEvent(new window.MouseEvent("dblclick", { bubbles: true, detail: 2, clientX: 12, clientY: 12 }));
+  const reply = window.document.getElementById("a");
+  replyList.splice(0, replyList.length, reply);
+  replyClicks.length = 0;
+  mouse(reply, "mousedown", 12, 12, 1);
+  mouse(reply, "mouseup", 12, 12, 1);
+  mouse(reply, "mousedown", 12, 12, 2);
+  mouse(reply, "mouseup", 12, 12, 2);
+  reply.dispatchEvent(new window.MouseEvent("dblclick", { bubbles: true, detail: 2, clientX: 12, clientY: 12 }));
   await delay(320);
-  assert.equal(replyClicks, 0);
+  assert.equal(replyClicks.length, 0);
 });
 
 test("a click on a link inside the reply does not toggle play", async () => {
-  clickRoot = window.document.getElementById("a");
+  const reply = window.document.getElementById("a");
   const link = window.document.createElement("a");
   link.href = "https://example.com/notes";
   link.textContent = "notes";
-  clickRoot.appendChild(link);
-  replyClicks = 0;
+  reply.appendChild(link);
+  replyList.splice(0, replyList.length, reply);
+  replyClicks.length = 0;
   mouse(link, "mousedown", 12, 12, 1);
   mouse(link, "mouseup", 12, 12, 1);
   await delay(320);
-  assert.equal(replyClicks, 0);
+  assert.equal(replyClicks.length, 0);
 });

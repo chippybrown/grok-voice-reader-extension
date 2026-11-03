@@ -70,6 +70,17 @@
         return speakCurrent();
       },
 
+      // A click on a different reply. Always the start of that reply.
+      playFromStart: function playFromStart(key) {
+        for (var i = 0; i < items.length; i++) {
+          if (items[i] && items[i].key === key) {
+            index = i;
+            return speakCurrent();
+          }
+        }
+        return "";
+      },
+
       // One button. Pause keeps the place in the reply. Play continues
       // from there when onResume can. Otherwise the reply starts again.
       toggle: function toggle() {
