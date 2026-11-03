@@ -3,7 +3,7 @@
   "name": "Grok Voice Reader",
   "version": "0.3.1",
   "description": "Reads a new Grok reply aloud in the tab that is open.",
-  "permissions": ["storage", "activeTab"],
+  "permissions": ["storage"],
   "host_permissions": [
     "https://grok.com/*",
     "https://*.grok.com/*",

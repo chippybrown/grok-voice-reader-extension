@@ -25,7 +25,7 @@ function delay(ms) {
 
 test("match list is valid and copied into the manifest", () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
-  assert.deepEqual(manifest.permissions, ["storage", "activeTab"]);
+  assert.deepEqual(manifest.permissions, ["storage"]);
   assert.equal(manifest.manifest_version, 3);
   assert.ok(GV.MATCHES.length > 0);
   for (const pattern of GV.MATCHES) assert.equal(GV.patternValid(pattern), true);
