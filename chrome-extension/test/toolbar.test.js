@@ -162,14 +162,14 @@ test("corner Play/Pause grows to |<< |< ||/> >| >>| while reading and sends acti
   const host = G.placeReadingControls(doc, r, { mode: "playing", onToggle: () => seen.push("toggle"), onAction: (a) => seen.push(a) });
   const shadow = host.shadowRoot;
   const actions = [...shadow.querySelectorAll("button")].map((b) => b.getAttribute("data-action"));
-  assert.deepEqual(actions, ["reply-back", "strip-back", "play-pause", "forward", "reply-forward"], "one play/pause, no duplicate");
+  assert.deepEqual(actions, ["reply-back", "strip-back", "play-pause", "forward", "reply-forward", "live"], "one play/pause, no duplicate");
   assert.equal(host.hasAttribute("data-extras"), false, "extras hidden until reading");
   G.setCornerExtras(true);
   assert.equal(host.getAttribute("data-extras"), "1");
   assert.equal(host.style.bottom, "8px");
   assert.equal(host.style.right, "8px");
   for (const b of shadow.querySelectorAll("button")) b.click();
-  assert.deepEqual(seen, ["reply-back", "strip-back", "play-pause", "forward", "reply-forward"], "play/pause goes through onAction like the others");
+  assert.deepEqual(seen, ["reply-back", "strip-back", "play-pause", "forward", "reply-forward", "live"], "play/pause goes through onAction like the others");
   assert.equal(doc.querySelectorAll("[data-grok-voice-controls=strip]").length, 0, "no separate strip");
   G.setCornerExtras(false);
   assert.equal(host.hasAttribute("data-extras"), false);

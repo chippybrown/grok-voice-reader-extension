@@ -7,6 +7,9 @@ const test = require("node:test");
 const puppeteer = require("puppeteer-core");
 
 const root = path.join(__dirname, "..");
+const vm = require("node:vm");
+const fs = require("node:fs");
+const GVK = (() => { const c = { globalThis: {} }; c.globalThis = c; vm.createContext(c); for (const f of ["src/config.js", "src/toolbar.js"]) vm.runInContext(fs.readFileSync(path.join(root, f), "utf8"), c); return c.GrokVoice; })();
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 // Same markup as the screenshot harness (Grok-like turns and classes).
 const B = 'class="break-words last:mb-0 max-md:leading-[155%] streamdown-first-block:mt-0"';
@@ -164,5 +167,32 @@ test("hands-free: Stop halts the run, and a new reply is not read after Stop", {
   } finally {
     await browser.close();
   }
+});
+
+// Rev 20261103 - 0.4.8 >>>| Live (Grok and Eldon R. Brown - WA0UWH)
+test(">>>| from an old reply reads nothing old, then reads the next new reply", { timeout: 90000 }, async () => {
+  const { browser, page, evalw, click } = await open();
+  try {
+    await click("bar", "forward");
+    await delay(400);
+    await click("corner", "reply-back");    // back to the older reply, reading
+    await delay(300);
+    await click("corner", "live");          // >>>| : past the newest
+    await delay(200);
+    const n = (await evalw("__said")).length;
+    assert.equal(await page.evaluate(() => document.querySelectorAll(".grok-voice-paragraph").length), 0, "no paragraph mark");
+    await delay(1500);
+    assert.equal((await evalw("__said")).length, n, "nothing old is read");
+    await addReply(page);
+    const said = await waitSaid(evalw, R3[1], 20000);
+    assert.deepEqual(said.slice(n), R3, JSON.stringify(said));
+  } finally {
+    await browser.close();
+  }
+});
+
+test("Alt+Shift+L is Live and does not clash with the other bar keys", () => {
+  const keys = ["Comma", "Period", "KeyS", "KeyE", "KeyH", "KeyL"].map((code) => GVK.barShortcutAction({ altKey: true, shiftKey: true, code }));
+  assert.deepEqual(keys, ["back", "forward", "stop", "end", "collapse", "live"]);
 });
 // End

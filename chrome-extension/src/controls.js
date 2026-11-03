@@ -1,6 +1,6 @@
 // One Play/Pause button in the lower-right corner of the outlined reply.
 // Rev 20261103 (Grok and Eldon R. Brown - WA0UWH): while reading or paused
-// the corner grows to |<< |< ||/> >| >>| (0.4.5), faded until hover.
+// the corner grows to |<< |< ||/> >| >>| >>>| (0.4.8), faded until hover.
 // The composer bar is left alone.
 (function (root) {
   "use strict";
@@ -25,6 +25,7 @@
     end: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6l7 6-7 6zm7 0l7 6-7 6z"></path><path d="M5 19h14v2H5z"></path></svg>',
     replyBack: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h2v12H4zm2.5 6 6.5 6V6zm6.5 0 6.5 6V6z"></path></svg>',
     replyForward: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6h2v12h-2zm-6.5 6L5 6v12zm6.5 0L11.5 6v12z"></path></svg>',
+    live: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 6l5 6-5 6zm6 0l5 6-5 6zm6 0l5 6-5 6z"></path><path d="M20 6h2v12h-2z"></path></svg>',
     summary: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z"></path></svg>'
   };
 
@@ -222,7 +223,8 @@
       '<button type="button" data-action="play-pause" title="' + tips.play + '" aria-label="' + tips.play + '">' +
       ICONS.play + "</button>" +
       extra("forward", "next", "Forward one paragraph") +
-      extra("reply-forward", "replyForward", "Last paragraph of this reply; at the last, next reply (End after the newest)") + "</div>";
+      extra("reply-forward", "replyForward", "Last paragraph of this reply; at the last, next reply (End after the newest)") +
+      extra("live", "live", "Live: skip past the newest reply and read only new ones (Alt+Shift+L)") + "</div>";
     // Keep presses on the corner away from Grok's own handlers (they bubble
     // to the page and can re-render or re-select the reply).
     ["pointerdown", "pointerup", "mousedown", "mouseup", "dblclick"].forEach(function (type) {

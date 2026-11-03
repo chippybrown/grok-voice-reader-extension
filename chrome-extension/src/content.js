@@ -257,6 +257,9 @@
     else if (action === "play-pause") onToggle();
     else if (action === "stop") doStop();
     else if (action === "end") doEnd();
+    // >>>| Live (0.4.8): same as End. Quiet, no pointer, still watching
+    // (not Stop), so only replies that arrive from now on are read.
+    else if (action === "live") doEnd();
     updateBar();
   }
 

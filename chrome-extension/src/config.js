@@ -58,6 +58,7 @@
     forward: "Alt+Shift+.",
     stop: "Alt+Shift+S",
     end: "Alt+Shift+E",
+    live: "Alt+Shift+L",
     collapse: "Alt+Shift+H"
   };
 

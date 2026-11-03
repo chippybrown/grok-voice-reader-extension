@@ -162,6 +162,7 @@
       case "Period": return "forward";
       case "KeyS": return "stop";
       case "KeyE": return "end";
+      case "KeyL": return "live";
       case "KeyH": return "collapse";
       default: return "";
     }
