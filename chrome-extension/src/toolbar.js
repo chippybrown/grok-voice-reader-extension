@@ -107,6 +107,14 @@
     return null;
   };
 
+  // First paragraph at or after `from` that has words. -1 when none.
+  GV.nextSpokenParagraph = function nextSpokenParagraph(texts, from) {
+    for (var i = Math.max(0, from || 0); i < (texts ? texts.length : 0); i++) {
+      if (String(texts[i] || "").trim()) return i;
+    }
+    return -1;
+  };
+
   // Corner Back (|<): restart this paragraph when partway in,
   // else step back one paragraph like the bar's Back.
   GV.planStripBack = function planStripBack(pos, counts, partway) {

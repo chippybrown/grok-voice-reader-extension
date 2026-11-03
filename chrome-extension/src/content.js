@@ -43,6 +43,13 @@
 
   var playback = GV.createPlayback({
     onSpeak: function (text, item) {
+      // Play from idle / restart: paragraph by paragraph from the top.
+      var at = item ? replyItems.indexOf(item) : -1;
+      if (at < 0 && item) {
+        for (var i = 0; i < replyItems.length; i++) if (replyItems[i].key === item.key) at = i;
+      }
+      if (at >= 0 && playParagraph({ reply: at, para: 0 })) return;
+      paraRun = null;
       speakManual(text, item && (item.body || item.element));
     },
     onPause: pauseSpeech,
@@ -67,7 +74,7 @@
 
   // Voice pointer: mark the paragraph that holds the sentence being read.
   function pointAt(node) {
-    if (!GV.replyParagraphs || !readingEl) return;
+    if (paraRun || !GV.replyParagraphs || !readingEl) return;
     var paras = GV.replyParagraphs(readingEl);
     for (var i = 0; i < paras.length; i++) {
       if (paras[i] === node || paras[i].contains(node)) {
@@ -92,26 +99,63 @@
     return counts;
   }
 
-  // Read from one paragraph to the end of its reply.
+  // 0.4.6: read one paragraph at a time from `target` to the end of its
+  // reply. Each paragraph is its own queue run; when it finishes,
+  // onfinished moves the pointer to the next one. A sentence can no
+  // longer run across a paragraph without a period, and the pointer no
+  // longer depends on finding the spoken words in the page.
+  var paraRun = null;
+
   function playParagraph(target) {
     if (!target) return false;
     var item = replyItems[target.reply];
     if (!item) return false;
     var body = replyBody(item);
     var paras = GV.replyParagraphs(body);
-    var text = paras.length ? GV.speechFromParagraph(paras, target.para) : item.speech;
-    if (!text) return false;
+    if (!paras.length) {
+      paraRun = null;
+      if (!item.speech) return false;
+      stopHeld = false;
+      applyReadMode("play");
+      pausedKey = "";
+      playback.noteSpoken(item.key);
+      speakManual(item.speech, body);
+      updateBar();
+      return true;
+    }
+    var at = GV.nextSpokenParagraph(paras.map(GV.visibleSpeech), target.para);
+    if (at < 0) return false;
     stopHeld = false;
     applyReadMode("play");
     pausedKey = "";
     playback.noteSpoken(item.key);
-    speakManual(text, body);
-    paraPos = { reply: target.reply, para: target.para };
+    paraPos = { reply: target.reply, para: at };
+    paraRun = { reply: target.reply, para: at, key: item.key };
+    cornerLog("paragraph", paraRun);
+    speakManual(GV.visibleSpeech(paras[at]), body, true);
     paraMarkedAt = Date.now();
-    if (paras[target.para]) GV.markParagraph(document, paras[target.para]);
+    GV.markParagraph(document, paras[at]);
     updateBar();
     updateStrip();
     return true;
+  }
+
+  // Called when one paragraph's run ends. true: the next one started.
+  function continueParagraphs() {
+    var run = paraRun;
+    if (!run) return false;
+    var item = replyItems[run.reply];
+    if (!item || item.key !== run.key) {
+      paraRun = null;
+      return false;
+    }
+    var paras = GV.replyParagraphs(replyBody(item));
+    var next = GV.nextSpokenParagraph(paras.map(GV.visibleSpeech), run.para + 1);
+    if (next < 0) {
+      paraRun = null;
+      return false;
+    }
+    return playParagraph({ reply: run.reply, para: next });
   }
 
   function currentPos() {
@@ -295,6 +339,7 @@
       }
     },
     onfinished: function () {
+      if (continueParagraphs()) return;
       clearSpoken();
       playback.markEnded();
       showReading(playback.state().body);
@@ -556,7 +601,8 @@
     speakManual(text, item && (item.body || item.element));
   }
 
-  function speakManual(text, element) {
+  function speakManual(text, element, keepRun) {
+    if (!keepRun) paraRun = null;
     if (!text) return;
     lastDetect.reason = "spoke";
     lastDetect.snippet = snippetOf(text);
@@ -681,6 +727,7 @@
   }
 
   function stopSpeaking() {
+    paraRun = null;
     clearSpoken();
     queuedSpeech = "";
     disarmUnlock();
