@@ -29,11 +29,15 @@ Leave that folder where it is. If you move or delete it, the add-on stops workin
 
 ## Playing a reply
 
-The reply that is being read has a green outline. A **Play/Pause** button sits in the lower-right corner of that box. Hold the pointer on it to see Play or Pause.
+Only one reply has a green outline. A **Play/Pause** button sits in the lower-right corner of that box. Hold the pointer on it to see Play or Pause.
 
-Click a different reply to move the outline there and start reading that reply from the beginning. The outline and the button leave the reply you were on.
+Click a different reply to move the outline there and read that reply from the beginning. That turns Play on. The outline and the button leave every other reply.
 
-Click inside the reply that is already outlined to pause or to continue. Pause keeps your place. Play continues from that place. A new reply is still read on its own, and the outline moves to it.
+Click the outlined reply, the corner button, or press **Alt+Shift+P** to pause or to continue. If you paused in the middle of that same reply, Play continues from that place.
+
+Play stays on until you pause. While paused, a new reply gets the outline and stays quiet until you press Play.
+
+The sentence being read is tinted yellow-green. If you scroll away, the page waits a few seconds before following it.
 
 **Alt+Shift+P** plays or pauses. **Alt+Left** and **Alt+Right** go to the previous or next reply from the keyboard.
 

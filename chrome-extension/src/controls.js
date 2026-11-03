@@ -5,6 +5,8 @@
 
   var GV = root.GrokVoice || (root.GrokVoice = {});
   var READING_CLASS = "grok-voice-reading";
+  var DEBUG_CLASS = "grok-voice-debug-target";
+  var MARK_CLASSES = [READING_CLASS, DEBUG_CLASS];
   var currentHost = null;
   var handlers = { onToggle: null };
 
@@ -34,6 +36,34 @@
     if (!clicked) return "ignore";
     if (active && active === clicked) return "toggle";
     return "start";
+  };
+
+  GV.normalizeReadMode = function normalizeReadMode(value) {
+    return value === "pause" ? "pause" : "play";
+  };
+
+  // Pause holds new replies quiet and still moves the outline onto them.
+  // Play reads them as they arrive.
+  GV.planNewReply = function planNewReply(readMode) {
+    var mode = GV.normalizeReadMode(readMode);
+    return { speak: mode === "play", highlight: true, readMode: mode };
+  };
+
+  // Corner button, Alt+Shift+P, or a click on the outlined reply.
+  // Resume only when that same reply is the one that was paused.
+  GV.planToggle = function planToggle(readMode, state, pausedKey) {
+    var playing = state && state.mode === "playing";
+    if (playing) return { do: "pause", readMode: "pause" };
+    var same = state && state.mode === "paused" && pausedKey && state.key === pausedKey;
+    return { do: same ? "resume" : "start", readMode: "play" };
+  };
+
+  // A different reply always turns Play on and reads from the start.
+  GV.planReplyClick = function planReplyClick(readMode, active, clicked, state, pausedKey) {
+    var action = GV.replyClickAction(active, clicked);
+    if (action === "ignore") return { do: "ignore", readMode: GV.normalizeReadMode(readMode) };
+    if (action === "start") return { do: "start", readMode: "play" };
+    return GV.planToggle(readMode, state, pausedKey);
   };
 
   var lastUiToggle = 0;
@@ -204,6 +234,87 @@
     element.removeAttribute("data-grok-voice-anchored");
   }
 
+  function collectElements(root, out) {
+    var nodes = [];
+    try {
+      nodes = root && root.querySelectorAll ? root.querySelectorAll("*") : [];
+    } catch (err) {
+      return;
+    }
+    for (var i = 0; i < nodes.length; i++) {
+      out.push(nodes[i]);
+      if (nodes[i].shadowRoot) collectElements(nodes[i].shadowRoot, out);
+    }
+  }
+
+  function ownedBy(keep, el) {
+    if (!keep || !el) return false;
+    if (el === keep) return true;
+    try { return Boolean(keep.contains && keep.contains(el)); } catch (err) { return false; }
+  }
+
+  function stripMarkStyles(el) {
+    if (!el.style) return;
+    el.style.outline = "";
+    el.style.outlineOffset = "";
+    var bg = String(el.style.backgroundColor || "").replace(/\s+/g, "").toLowerCase();
+    if (bg === "#3ddc84" || bg === "rgb(61,220,132)") el.style.backgroundColor = "";
+  }
+
+  // Every highlight except the reply we are keeping. Shadow roots included,
+  // because a re-rendered node is not the one we stored last time.
+  function stripOtherHighlights(doc, keep) {
+    var all = [];
+    collectElements(doc, all);
+    var i;
+    var c;
+    for (i = 0; i < all.length; i++) {
+      var el = all[i];
+      if (!el || el === keep) continue;
+      var marked = false;
+      if (el.classList) {
+        for (c = 0; c < MARK_CLASSES.length; c++) {
+          if (el.classList.contains(MARK_CLASSES[c])) {
+            el.classList.remove(MARK_CLASSES[c]);
+            marked = true;
+          }
+        }
+      }
+      if (marked) {
+        stripMarkStyles(el);
+        releaseAnchor(el);
+      }
+      if (el.getAttribute && el.getAttribute("data-grok-voice-controls") === "1" && el !== currentHost && !ownedBy(keep, el)) {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }
+    }
+  }
+
+  GV.stripDebugMarks = function stripDebugMarks(doc) {
+    if (!doc) return;
+    var all = [];
+    collectElements(doc, all);
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].classList && all[i].classList.contains(DEBUG_CLASS)) {
+        all[i].classList.remove(DEBUG_CLASS);
+        stripMarkStyles(all[i]);
+      }
+    }
+  };
+
+  GV.keepDebugMark = function keepDebugMark(doc, element) {
+    if (!doc) return;
+    var all = [];
+    collectElements(doc, all);
+    for (var i = 0; i < all.length; i++) {
+      if (all[i] !== element && all[i].classList && all[i].classList.contains(DEBUG_CLASS)) {
+        all[i].classList.remove(DEBUG_CLASS);
+        stripMarkStyles(all[i]);
+      }
+    }
+    if (element && element.classList) element.classList.add(DEBUG_CLASS);
+  };
+
   function placeCorner(host) {
     host.style.position = "absolute";
     host.style.right = "8px";
@@ -225,14 +336,7 @@
     if (!doc) return null;
     ensureStyle(doc);
     handlers.onToggle = options.onToggle || handlers.onToggle || null;
-    var marked = doc.querySelectorAll("." + READING_CLASS);
-    var i;
-    for (i = 0; i < marked.length; i++) {
-      if (marked[i] !== element) {
-        marked[i].classList.remove(READING_CLASS);
-        releaseAnchor(marked[i]);
-      }
-    }
+    stripOtherHighlights(doc, element);
     if (!element) {
       discardHost();
       return null;

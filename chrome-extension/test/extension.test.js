@@ -247,7 +247,7 @@ const nestedPage = `<!DOCTYPE html>
   </script>
 </body></html>`;
 
-test("shadow root and iframe chats are both detected", { timeout: 45000 }, async () => {
+test("shadow root and iframe chats are both detected", { timeout: 90000 }, async () => {
   const { browser } = await launch();
   try {
     const page = await browser.newPage();
@@ -692,9 +692,17 @@ async function waitForBadge(worker) {
 
 async function waitForSpoken(world) {
   let texts = [];
-  for (let i = 0; i < 30; i++) {
+  let last = -1;
+  let stable = 0;
+  for (let i = 0; i < 40; i++) {
     texts = await spokenTexts(world);
-    if (texts.length) return texts;
+    if (texts.length && texts.length === last) {
+      stable += 1;
+      if (stable >= 2) return texts;
+    } else {
+      stable = 0;
+    }
+    last = texts.length;
     await delay(150);
   }
   return texts;

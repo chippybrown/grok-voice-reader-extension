@@ -410,6 +410,95 @@ test("a double-click does not toggle play", async () => {
   assert.equal(replyClicks.length, 0);
 });
 
+test("one reply keeps the green highlight, including after a re-render", () => {
+  const doc = window.document;
+  const latest = doc.createElement("div");
+  latest.id = "latest-reply";
+  latest.className = "grok-voice-reading grok-voice-debug-target";
+  latest.style.outline = "3px solid #3ddc84";
+  latest.style.backgroundColor = "#3ddc84";
+  const stray = doc.createElement("div");
+  stray.setAttribute("data-grok-voice-controls", "1");
+  latest.appendChild(stray);
+  const nested = doc.createElement("div");
+  nested.className = "grok-voice-reading";
+  latest.appendChild(nested);
+  const shadowHost = doc.createElement("div");
+  const shadow = shadowHost.attachShadow({ mode: "open" });
+  const oldShadow = doc.createElement("div");
+  oldShadow.className = "grok-voice-reading grok-voice-debug-target";
+  shadow.appendChild(oldShadow);
+  doc.body.appendChild(latest);
+  doc.body.appendChild(shadowHost);
+  const chosen = doc.getElementById("b");
+  GV.placeReadingControls(doc, chosen, { mode: "paused" });
+  assert.equal(latest.classList.contains("grok-voice-reading"), false);
+  assert.equal(latest.classList.contains("grok-voice-debug-target"), false);
+  assert.equal(nested.classList.contains("grok-voice-reading"), false);
+  assert.equal(oldShadow.classList.contains("grok-voice-reading"), false);
+  assert.equal(oldShadow.classList.contains("grok-voice-debug-target"), false);
+  assert.equal(latest.style.outline, "");
+  assert.equal(String(latest.style.backgroundColor).replace(/\s+/g, "").toLowerCase(), "");
+  assert.equal(latest.querySelector("[data-grok-voice-controls]"), null);
+  assert.equal(chosen.classList.contains("grok-voice-reading"), true);
+  assert.equal(doc.querySelectorAll(".grok-voice-reading").length, 1);
+  assert.equal(doc.querySelectorAll("[data-grok-voice-controls]").length, 1);
+  assert.equal(chosen.contains(doc.querySelector("[data-grok-voice-controls]")), true);
+  latest.remove();
+  shadowHost.remove();
+});
+
+test("pause keeps new replies quiet, and another reply turns play back on", () => {
+  assert.equal(GV.DEFAULTS.readMode, "play");
+  assert.equal(GV.normalizeReadMode("pause"), "pause");
+  assert.equal(GV.normalizeReadMode("nope"), "play");
+  const fresh = GV.planNewReply("play");
+  const held = GV.planNewReply("pause");
+  assert.equal(fresh.speak, true);
+  assert.equal(fresh.highlight, true);
+  assert.equal(fresh.readMode, "play");
+  assert.equal(held.speak, false);
+  assert.equal(held.highlight, true);
+  assert.equal(held.readMode, "pause");
+  const same = { mode: "paused", key: "a" };
+  const playing = { mode: "playing", key: "a" };
+  const moved = { mode: "paused", key: "b" };
+  assert.equal(GV.planToggle("play", playing, "a").do, "pause");
+  assert.equal(GV.planToggle("play", playing, "a").readMode, "pause");
+  assert.equal(GV.planToggle("pause", same, "a").do, "resume");
+  assert.equal(GV.planToggle("pause", same, "a").readMode, "play");
+  assert.equal(GV.planToggle("pause", moved, "a").do, "start");
+  assert.equal(GV.planToggle("pause", moved, "a").readMode, "play");
+  const active = { id: "active" };
+  const other = { id: "other" };
+  assert.equal(GV.planReplyClick("pause", active, other, same, "a").do, "start");
+  assert.equal(GV.planReplyClick("pause", active, other, same, "a").readMode, "play");
+  assert.equal(GV.planReplyClick("pause", active, active, same, "a").do, "resume");
+  assert.equal(GV.planReplyClick("play", active, active, playing, "a").do, "pause");
+  assert.equal(GV.planReplyClick("play", active, active, playing, "a").readMode, "pause");
+
+  const spoken = [];
+  const playback = GV.createPlayback({
+    onSpeak: function (text) { spoken.push(text); },
+    onPause: function () { return true; },
+    onResume: function () { return true; }
+  });
+  playback.setItems([
+    { key: "a", speech: "First reply here." },
+    { key: "b", speech: "Second reply here." }
+  ]);
+  playback.playFromStart("a");
+  playback.toggle();
+  assert.equal(playback.state().mode, "paused");
+  assert.equal(playback.select("b"), true);
+  assert.equal(playback.state().key, "b");
+  assert.equal(playback.state().mode, "paused");
+  assert.equal(spoken.length, 1);
+  assert.equal(GV.planToggle("pause", playback.state(), "a").do, "start");
+  assert.equal(playback.playFromStart("b"), "Second reply here.");
+  assert.deepEqual(spoken, ["First reply here.", "Second reply here."]);
+});
+
 test("a click on a link inside the reply does not toggle play", async () => {
   const reply = window.document.getElementById("a");
   const link = window.document.createElement("a");
@@ -422,4 +511,99 @@ test("a click on a link inside the reply does not toggle play", async () => {
   mouse(link, "mouseup", 12, 12, 1);
   await delay(320);
   assert.equal(replyClicks.length, 0);
+});
+
+test("a past reply continues when onend never fires", async () => {
+  const spoken = [];
+  let speaking = false;
+  let hooks = null;
+  const queue = GV.createSpeechQueue({
+    speak: function (text, next) {
+      spoken.push(text);
+      hooks = next;
+      speaking = true;
+      if (next.onstart) next.onstart();
+      speaking = false;
+    },
+    cancel: function () { speaking = false; },
+    isSpeaking: function () { return speaking; },
+    watchdogMs: 40
+  });
+  assert.equal(queue.start("Alpha beta gamma. Delta epsilon."), true);
+  const staleEnd = hooks.onend;
+  assert.equal(spoken[0], "Alpha beta gamma.");
+  queue.start("Other reply here. Second line of it.");
+  staleEnd();
+  assert.deepEqual(spoken, ["Alpha beta gamma.", "Other reply here."]);
+  await delay(160);
+  assert.equal(spoken[2], "Second line of it.");
+  queue.stop();
+});
+
+test("keepalive resume runs while Chrome is still speaking", async () => {
+  let resumes = 0;
+  const queue = GV.createSpeechQueue({
+    speak: function (text, next) { if (next.onstart) next.onstart(); },
+    cancel: function () {},
+    isSpeaking: function () { return true; },
+    keepalive: function () { resumes += 1; },
+    keepaliveMs: 30,
+    watchdogMs: 5000
+  });
+  queue.start("Alpha beta gamma. Delta epsilon.");
+  await delay(90);
+  assert.equal(resumes > 0, true);
+  queue.stop();
+});
+
+test("the spoken sentence is highlighted without changing the reply", () => {
+  const doc = window.document;
+  const view = window;
+  const reply = doc.createElement("div");
+  reply.appendChild(doc.createTextNode("Alpha beta "));
+  reply.appendChild(doc.createTextNode("gamma. Delta epsilon."));
+  const link = doc.createElement("a");
+  link.href = "https://example.com/notes";
+  link.textContent = "notes";
+  reply.appendChild(doc.createTextNode(" See "));
+  reply.appendChild(link);
+  reply.appendChild(doc.createTextNode(" please."));
+  doc.body.appendChild(reply);
+  const before = reply.innerHTML;
+  const sentence = GV.speechRangeIn(reply, "Delta epsilon.", null);
+  assert.equal(sentence.toString(), "Delta epsilon.");
+  const word = GV.speechRangeIn(reply, "Alpha beta gamma.", 6);
+  assert.equal(word.toString(), "beta");
+  assert.equal(GV.shouldScrollSentence({ top: 900, bottom: 940, height: 40, width: 80 }, 800, 0, 5000), true);
+  assert.equal(GV.shouldScrollSentence({ top: 900, bottom: 940, height: 40, width: 80 }, 800, 4000, 5000), false);
+  assert.equal(GV.shouldScrollSentence({ top: 40, bottom: 80, height: 40, width: 80 }, 800, 0, 5000), false);
+
+  let stored = null;
+  let clicks = 0;
+  link.addEventListener("click", function () { clicks += 1; });
+  const text = reply.firstChild;
+  const saved = doc.createRange();
+  saved.setStart(text, 0);
+  saved.setEnd(text, 5);
+  const selection = view.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(saved);
+  view.Highlight = function (range) { this.range = range; };
+  view.CSS = {
+    highlights: {
+      set: function (name, highlight) { stored = { name: name, highlight: highlight }; },
+      delete: function () { stored = null; }
+    }
+  };
+  const painter = GV.createSentencePainter(doc);
+  const painted = painter.show(reply, "Alpha beta gamma.", null);
+  assert.equal(painted.toString().replace(/\s+/g, " "), "Alpha beta gamma.");
+  assert.equal(stored.name, "grok-voice-sentence");
+  assert.equal(reply.innerHTML, before);
+  assert.equal(selection.toString(), "Alpha");
+  link.dispatchEvent(new view.MouseEvent("click", { bubbles: true }));
+  assert.equal(clicks, 1);
+  painter.clear();
+  assert.equal(stored, null);
+  reply.remove();
 });
