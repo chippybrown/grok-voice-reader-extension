@@ -38,6 +38,8 @@
   var paraPos = { reply: -1, para: -1 };
   var lastBotId = "";
   var showBar = true;
+  var strip = null;
+  var paraMarkedAt = 0;
 
   var playback = GV.createPlayback({
     onSpeak: function (text, item) {
@@ -69,8 +71,10 @@
     var paras = GV.replyParagraphs(readingEl);
     for (var i = 0; i < paras.length; i++) {
       if (paras[i] === node || paras[i].contains(node)) {
+        if (paraPos.reply !== playback.state().index || paraPos.para !== i) paraMarkedAt = Date.now();
         paraPos = { reply: playback.state().index, para: i };
         GV.markParagraph(document, paras[i]);
+        updateStrip(paras[i]);
         return;
       }
     }
@@ -79,6 +83,7 @@
   function clearPointer() {
     paraPos = { reply: -1, para: -1 };
     if (GV.markParagraph) GV.markParagraph(document, null);
+    if (strip) strip.hide();
   }
 
   function paragraphCounts() {
@@ -102,8 +107,10 @@
     playback.noteSpoken(item.key);
     speakManual(text, body);
     paraPos = { reply: target.reply, para: target.para };
+    paraMarkedAt = Date.now();
     if (paras[target.para]) GV.markParagraph(document, paras[target.para]);
     updateBar();
+    updateStrip(paras[target.para]);
     return true;
   }
 
@@ -150,14 +157,36 @@
   }
 
   function updateBar() {
-    if (!toolbar) return;
-    toolbar.update(GV.toolbarStatus({ enabled: watching, mode: playback.state().mode, stopHeld: stopHeld }));
+    if (toolbar) toolbar.update(GV.toolbarStatus({ enabled: watching, mode: playback.state().mode, stopHeld: stopHeld }));
+    updateStrip();
+  }
+
+  // Paragraph strip: |< ||/> >| >>| on the marked paragraph while reading
+  // or paused. Follows the "Show on-page control bar" switch.
+  function updateStrip(para) {
+    if (!GV.createParagraphStrip || !document.body) return;
+    var status = GV.toolbarStatus({ enabled: watching, mode: playback.state().mode, stopHeld: stopHeld });
+    if (!GV.stripWanted(status, showBar)) {
+      if (strip) strip.hide();
+      return;
+    }
+    if (!strip) strip = GV.createParagraphStrip(document, { onAction: onBarAction });
+    var target = para || document.querySelector(".grok-voice-paragraph") || strip.owner();
+    strip.show(target, status);
+  }
+
+  // |< on the strip: restart the paragraph if more than 2 s in.
+  function stripBack() {
+    var partway = paraMarkedAt && Date.now() - paraMarkedAt > 2000;
+    var plan = GV.planStripBack(currentPos(), paragraphCounts(), partway);
+    if (plan) playParagraph(plan);
   }
 
   function onBarAction(action, event) {
     var shift = Boolean(event && event.shiftKey);
     if (action === "back") stepParagraph(-1, shift);
     else if (action === "forward") stepParagraph(1, shift);
+    else if (action === "strip-back") stripBack();
     else if (action === "play-pause") onToggle();
     else if (action === "stop") doStop();
     else if (action === "end") doEnd();
@@ -189,6 +218,7 @@
       toolbar = null;
     }
     if (showBar) ensureToolbar();
+    updateStrip();
   }
 
   function onBarKey(event) {

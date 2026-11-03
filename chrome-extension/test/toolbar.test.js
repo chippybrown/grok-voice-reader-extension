@@ -136,3 +136,45 @@ test("Show on-page control bar: default on, off removes the bar", () => {
   bar.destroy();
   assert.equal(dom.window.document.querySelector("[data-grok-voice-controls=bar]"), null);
 });
+
+// Rev 20261103 - paragraph strip tests (Grok and Eldon R. Brown - WA0UWH)
+test("strip Back restarts the paragraph when partway in, else steps back", () => {
+  const counts = [2, 3];
+  assert.deepEqual(plain(GV.planStripBack({ reply: 1, para: 2 }, counts, true)), { reply: 1, para: 2 });
+  assert.deepEqual(plain(GV.planStripBack({ reply: 1, para: 2 }, counts, false)), { reply: 1, para: 1 });
+  assert.deepEqual(plain(GV.planStripBack({ reply: 1, para: 0 }, counts, false)), { reply: 0, para: 1 });
+  assert.deepEqual(plain(GV.planStripBack({ reply: 1, para: -1 }, counts, true)), { reply: 1, para: 0 });
+});
+
+test("strip shows only while reading or paused, and follows the bar switch", () => {
+  assert.equal(GV.stripWanted("reading"), true);
+  assert.equal(GV.stripWanted("paused"), true);
+  assert.equal(GV.stripWanted("watching"), false);
+  assert.equal(GV.stripWanted("stopped"), false);
+  assert.equal(GV.stripWanted("reading", false), false);
+});
+
+test("paragraph strip sits above the paragraph corner and sends actions", () => {
+  const { dom, GV: G } = load("<!doctype html><body><p id=a>One two.</p><p id=b>Three.</p></body>");
+  const doc = dom.window.document;
+  const seen = [];
+  const strip = G.createParagraphStrip(doc, { onAction: (a) => seen.push(a) });
+  const a = doc.getElementById("a");
+  strip.show(a, "reading");
+  assert.equal(strip.host.parentNode, a);
+  assert.equal(a.style.position, "relative");
+  assert.equal(strip.host.style.top, "-26px", "above the text, not on it");
+  assert.equal(a.textContent, "One two.", "strip adds no text to the paragraph");
+  const buttons = [...strip.host.shadowRoot.querySelectorAll("button")].map((b) => b.getAttribute("data-action"));
+  assert.deepEqual(buttons, ["strip-back", "play-pause", "forward", "end"]);
+  for (const b of strip.host.shadowRoot.querySelectorAll("button")) b.click();
+  assert.deepEqual(seen, buttons);
+  assert.equal(strip.host.shadowRoot.querySelector('[data-action="play-pause"]').title, "Pause");
+  strip.show(a, "paused");
+  assert.equal(strip.host.shadowRoot.querySelector('[data-action="play-pause"]').title, "Play");
+  strip.show(doc.getElementById("b"), "reading");
+  assert.equal(a.style.position, "", "old paragraph restored");
+  strip.show(doc.getElementById("b"), "stopped");
+  assert.equal(strip.host.parentNode, null);
+  assert.equal(doc.getElementById("b").style.position, "");
+});
