@@ -39,6 +39,7 @@
   var paraPos = { reply: -1, para: -1 };
   var lastBotId = "";
   var showBar = true;
+  var continueReplies = true;
   var paraMarkedAt = 0;
 
   var playback = GV.createPlayback({
@@ -144,18 +145,26 @@
   function continueParagraphs() {
     var run = paraRun;
     if (!run) return false;
-    var item = replyItems[run.reply];
-    if (!item || item.key !== run.key) {
+    var at = -1;
+    for (var i = 0; i < replyItems.length; i++) if (replyItems[i].key === run.key) at = i;
+    if (at < 0) {
       paraRun = null;
       return false;
     }
-    var paras = GV.replyParagraphs(replyBody(item));
+    var paras = GV.replyParagraphs(replyBody(replyItems[at]));
     var next = GV.nextSpokenParagraph(paras.map(GV.visibleSpeech), run.para + 1);
-    if (next < 0) {
-      paraRun = null;
-      return false;
+    if (next >= 0) return playParagraph({ reply: at, para: next });
+    // 0.4.7 hands-free: roll on into the next reply, up to the newest.
+    var counts = paragraphCounts();
+    var r = GV.nextRunReply(counts, at, continueReplies);
+    cornerLog("reply done", { at: at, next: r, continueReplies: continueReplies });
+    while (r >= 0) {
+      if (playParagraph({ reply: r, para: 0 })) return true;
+      r = GV.nextRunReply(counts, r, continueReplies);
     }
-    return playParagraph({ reply: run.reply, para: next });
+    // Newest reply done: wait. A new reply is read by speakAuto.
+    paraRun = null;
+    return false;
   }
 
   function currentPos() {
@@ -170,6 +179,8 @@
     var counts = paragraphCounts();
     var plan = whole ? GV.planReplyEdge(currentPos(), counts, dir) : GV.planParagraphStep(currentPos(), counts, dir);
     if (!plan) {
+      // Hands-free: past the newest paragraph just waits for new replies.
+      if (continueReplies) return false;
       doEnd();
       return false;
     }
@@ -580,6 +591,13 @@
       return;
     }
     var item = itemForSpeech(text);
+    // 0.4.7: a run in progress (playing or paused) reaches this reply on
+    // its own, so do not jump. Otherwise read it paragraph by paragraph.
+    if (paraRun && continueReplies) {
+      lastDetect.reason = "queued";
+      cornerLog("new reply queued", { key: item && item.key });
+      return;
+    }
     var plan = GV.planNewReply(readMode, stopHeld);
     if (!plan.highlight) {
       lastDetect.reason = "stopped";
@@ -597,6 +615,8 @@
       logResolve();
       return;
     }
+    var at = item ? replyItems.indexOf(item) : -1;
+    if (at >= 0 && playParagraph({ reply: at, para: 0 })) return;
     if (item) playback.noteSpoken(item.key);
     speakManual(text, item && (item.body || item.element));
   }
@@ -1043,6 +1063,7 @@
       showReading();
     }
     if (changes.showToolbar) applyShowBar(changes.showToolbar.newValue !== false);
+    if (changes.continueReplies) continueReplies = changes.continueReplies.newValue !== false;
     if (changes.autoEndOnBotSwitch) botSettings.autoEndOnBotSwitch = changes.autoEndOnBotSwitch.newValue !== false;
     if (changes.enabled) applyEnabled(changes.enabled.newValue !== false);
   });
@@ -1061,6 +1082,7 @@
       debug = stored.debug === true;
       readMode = GV.normalizeReadMode(stored.readMode);
       showBar = GV.toolbarWanted(stored);
+      continueReplies = stored.continueReplies !== false;
       syncBot();
       applyEnabled(stored.enabled !== false);
       scheduleScan();

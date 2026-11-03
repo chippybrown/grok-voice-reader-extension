@@ -115,6 +115,14 @@
     return -1;
   };
 
+  // Hands-free run: the next reply (after `from`) that has paragraphs.
+  // -1: none yet, so wait for a new reply. Off: -1 always.
+  GV.nextRunReply = function nextRunReply(counts, from, continueOn) {
+    if (continueOn === false || !counts) return -1;
+    for (var r = from + 1; r < counts.length; r++) if (counts[r] > 0) return r;
+    return -1;
+  };
+
   // Corner Back (|<): restart this paragraph when partway in,
   // else step back one paragraph like the bar's Back.
   GV.planStripBack = function planStripBack(pos, counts, partway) {

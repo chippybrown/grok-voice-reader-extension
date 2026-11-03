@@ -72,6 +72,7 @@
     piperPromptDismissed: false,
     autoEndOnBotSwitch: true,
     showToolbar: true,
+    continueReplies: true,
     toolbar: { x: -1, y: -1, collapsed: false },
     bots: {}
   };

@@ -235,3 +235,11 @@ test(">>| goes to the last paragraph of this reply, then the next reply, then En
   assert.deepEqual(plain(GV.planReplyEdge({ reply: 2, para: -1 }, c, 1)), { reply: 2, para: 3 });
   assert.equal(GV.planReplyEdge({ reply: 0, para: 0 }, [], 1), null);
 });
+
+// Rev 20261103 - 0.4.7 hands-free next reply (Grok and Eldon R. Brown - WA0UWH)
+test("hands-free run rolls to the next reply with words, waits at the newest, and can be turned off", () => {
+  assert.equal(GV.nextRunReply([2, 0, 3], 0, true), 2, "empty reply skipped");
+  assert.equal(GV.nextRunReply([2, 0, 3], 2, true), -1, "newest: wait");
+  assert.equal(GV.nextRunReply([2, 3], 0, false), -1, "switch off: stop at end of reply");
+  assert.equal(GV.DEFAULTS.continueReplies, true, "default on");
+});
