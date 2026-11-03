@@ -44,3 +44,5 @@ The sentence being read is tinted yellow-green. If you scroll away, the page wai
 ## Each bot
 
 Click the Grok Voice Reader icon. The popup has a voice and an on or off switch for the bot you have open. **Voice for this bot** picks the voice. **Read this bot aloud** turns reading on or off for that bot.
+
+If the browser has few English voices, the popup offers free Piper voices. A voice downloads once and stays on this computer. It shows up in the same voice list.

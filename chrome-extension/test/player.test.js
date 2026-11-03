@@ -12,7 +12,7 @@ function loadWindow() {
     { runScripts: "dangerously", url: "https://grok.com/bot/abc-123" }
   );
   const window = dom.window;
-  for (const file of ["src/config.js", "src/playback.js", "src/bots.js", "src/updates.js", "src/controls.js"]) {
+  for (const file of ["src/config.js", "src/playback.js", "src/bots.js", "src/updates.js", "src/controls.js", "src/piper.js"]) {
     window.eval(fs.readFileSync(path.join(root, file), "utf8"));
   }
   return window;
@@ -554,6 +554,58 @@ test("keepalive resume runs while Chrome is still speaking", async () => {
   await delay(90);
   assert.equal(resumes > 0, true);
   queue.stop();
+});
+
+test("Piper is offered once when English voices are scarce", () => {
+  const few = [
+    { lang: "en-US", name: "A" },
+    { lang: "en-GB", name: "B" },
+    { lang: "fr-FR", name: "C" }
+  ];
+  const many = few.concat([
+    { lang: "en-US", name: "D" },
+    { lang: "en_US", name: "E" },
+    { lang: "en", name: "F" },
+    { lang: "de-DE", name: "G" }
+  ]);
+  assert.equal(GV.countEnglishVoices(few), 2);
+  assert.equal(GV.countEnglishVoices(many), 5);
+  assert.equal(GV.shouldOfferPiper(few, false), true);
+  assert.equal(GV.shouldOfferPiper(many, false), true);
+  assert.equal(GV.shouldOfferPiper(many.concat([{ lang: "en-AU", name: "H" }]), false), false);
+  assert.equal(GV.shouldOfferPiper(few, true), false);
+  assert.equal(GV.isPiperVoice("piper:en_US-lessac-low"), true);
+  assert.equal(GV.isPiperVoice("voice-a"), false);
+  assert.equal(GV.piperVoiceId("piper:en_US-lessac-low"), "en_US-lessac-low");
+  const voice = GV.piperVoiceById("en_US-lessac-low");
+  assert.equal(GV.formatBytes(voice.bytes), "60.3 MB");
+  assert.equal(
+    GV.piperModelUrl(voice, ".onnx"),
+    "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/low/en_US-lessac-low.onnx"
+  );
+});
+
+test("update notice is for unpacked installs and uses releases/latest", () => {
+  assert.equal(GV.shouldCheckForUpdates({}), true);
+  assert.equal(GV.shouldCheckForUpdates({ update_url: "https://clients2.google.com/service/update2/crx" }), false);
+  assert.equal(GV.updateNoticeLabel("0.4.1"), "New version 0.4.1 available");
+  const older = GV.noticeFromLatest({
+    tag_name: "v0.4.0",
+    html_url: "https://example/040",
+    assets: [{ name: "Grok-Voice-Reader-Extension.zip", browser_download_url: "https://example/040.zip" }]
+  }, "0.4.0");
+  assert.equal(older, null);
+  const newer = GV.noticeFromLatest({
+    tag_name: "v0.4.1",
+    prerelease: false,
+    html_url: "https://example/041",
+    assets: [{ name: "Grok-Voice-Reader-Extension.zip", browser_download_url: "https://example/041.zip" }]
+  }, "0.4.0");
+  assert.equal(newer.version, "0.4.1");
+  assert.equal(newer.url, "https://example/041.zip");
+  assert.equal(GV.noticeFromLatest({ tag_name: "v0.9.0", prerelease: true, html_url: "https://example/beta" }, "0.4.0"), null);
+  assert.equal(GV.updateCheckDue(0, 10), true);
+  assert.equal(GV.updateCheckDue(1000, 1000 + GV.UPDATE_INTERVAL_MS - 1), false);
 });
 
 test("the spoken sentence is highlighted without changing the reply", () => {

@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Grok Voice Reader",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Reads a new Grok reply aloud in the tab that is open.",
-  "permissions": ["storage", "activeTab"],
+  "permissions": ["storage", "offscreen"],
   "host_permissions": [
     "https://grok.com/*",
     "https://*.grok.com/*",
@@ -13,7 +13,9 @@
     "https://*.grok.x.ai/*",
     "https://cursor.com/*",
     "https://*.cursor.com/*",
-    "https://api.github.com/*"
+    "https://api.github.com/*",
+    "https://huggingface.co/*",
+    "https://*.hf.co/*"
   ],
   "commands": {
     "previous": {
@@ -28,6 +30,9 @@
       "suggested_key": { "default": "Alt+Right" },
       "description": "Read the next reply"
     }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   },
   "background": {
     "service_worker": "src/background.js"
@@ -67,6 +72,7 @@
         "src/playback.js",
         "src/bots.js",
         "src/controls.js",
+        "src/piper.js",
         "src/content.js"
       ],
       "run_at": "document_idle",

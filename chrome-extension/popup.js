@@ -18,6 +18,8 @@
   var saving = false;
   var currentBot = { id: "", name: "" };
   var storedBots = {};
+  var piperInstalled = [];
+  var piperDismissed = false;
 
   function setStatus(text) {
     statusNode.textContent = text;
@@ -27,8 +29,23 @@
     rateValue.textContent = GV.clampRate(value).toFixed(1);
   }
 
+  function systemVoices() {
+    return window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+  }
+
+  function voiceChoices() {
+    var extra = piperInstalled.map(function (voice) {
+      return {
+        voiceURI: GV.piperVoiceURI(voice.id),
+        name: voice.name + " (Piper)",
+        lang: voice.lang
+      };
+    });
+    return systemVoices().concat(extra);
+  }
+
   function voiceOptions(select, selected, includeDefault) {
-    var voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+    var voices = voiceChoices();
     var previous = selected != null ? selected : select.value;
     select.textContent = "";
     if (includeDefault) {
@@ -107,7 +124,7 @@
     updateNode.hidden = !notice || !notice.url;
     updateNode.textContent = "";
     if (!notice || !notice.url) return;
-    updateNode.appendChild(document.createTextNode("Update available: " + (notice.version || notice.tag) + ". "));
+    updateNode.appendChild(document.createTextNode(GV.updateNoticeLabel(notice.version || notice.tag) + " "));
     var link = document.createElement("a");
     link.href = notice.url;
     link.target = "_blank";
@@ -226,9 +243,83 @@
     document.getElementById("version").textContent = "";
   }
 
+  function paintPiperOffer() {
+    var offer = document.getElementById("piper-offer");
+    offer.hidden = !GV.shouldOfferPiper(systemVoices(), piperDismissed);
+  }
+
+  function paintPiperList() {
+    var list = document.getElementById("piper-list");
+    list.textContent = "";
+    GV.PIPER_VOICES.forEach(function (voice) {
+      var item = document.createElement("li");
+      var installed = piperInstalled.some(function (row) { return row.id === voice.id; });
+      item.textContent = voice.name + " (" + GV.formatBytes(voice.bytes) + ")";
+      if (installed) {
+        item.appendChild(document.createTextNode(" — downloaded"));
+      } else {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.textContent = "Download";
+        button.addEventListener("click", function () { downloadPiper(voice, button); });
+        item.appendChild(document.createTextNode(" "));
+        item.appendChild(button);
+      }
+      list.appendChild(item);
+    });
+  }
+
+  function downloadPiper(voice, button) {
+    button.disabled = true;
+    setStatus("Downloading " + voice.name + " (" + GV.formatBytes(voice.bytes) + ")…");
+    fetch(GV.piperModelUrl(voice, ".onnx.json")).then(function (response) {
+      if (!response.ok) throw new Error("config " + response.status);
+      return response.json();
+    }).then(function (config) {
+      return fetch(GV.piperModelUrl(voice, ".onnx")).then(function (response) {
+        if (!response.ok) throw new Error("model " + response.status);
+        return response.arrayBuffer();
+      }).then(function (model) {
+        return GV.savePiperVoice({
+          id: voice.id,
+          name: voice.name,
+          lang: voice.lang,
+          bytes: model.byteLength,
+          config: config,
+          model: model
+        });
+      });
+    }).then(function () {
+      return GV.listPiperVoices();
+    }).then(function (rows) {
+      piperInstalled = rows;
+      paintPiperList();
+      refreshStatus();
+      setStatus(voice.name + " is ready.");
+    }).catch(function () {
+      button.disabled = false;
+      setStatus("Could not download " + voice.name + ".");
+    });
+  }
+
+  document.getElementById("piper-offer-yes").addEventListener("click", function () {
+    piperDismissed = true;
+    save({ piperPromptDismissed: true });
+    document.getElementById("piper-offer").hidden = true;
+    document.getElementById("piper-list-wrap").hidden = false;
+    paintPiperList();
+  });
+
+  document.getElementById("piper-offer-no").addEventListener("click", function () {
+    piperDismissed = true;
+    save({ piperPromptDismissed: true });
+    document.getElementById("piper-offer").hidden = true;
+  });
+
   labelButtons();
 
   chrome.storage.local.get(GV.DEFAULTS, function (stored) {
+    piperDismissed = stored.piperPromptDismissed === true;
     enabledInput.checked = stored.enabled !== false;
     debugInput.checked = stored.debug === true;
     newBotsInput.checked = stored.newBotsAutoRead !== false;
@@ -245,11 +336,28 @@
     if (response && response.notice) showUpdate(response.notice);
   });
 
+  function refreshPiper() {
+    GV.listPiperVoices().then(function (rows) {
+      piperInstalled = rows;
+      paintPiperOffer();
+      paintPiperList();
+      if (!saving) {
+        voiceOptions(voiceSelect, voiceSelect.value, true);
+        voiceOptions(botVoiceSelect, botVoiceSelect.value, false);
+      }
+    }).catch(function () {
+      paintPiperOffer();
+    });
+  }
+
   if (window.speechSynthesis) {
     window.speechSynthesis.addEventListener("voiceschanged", function () {
       if (saving) return;
+      paintPiperOffer();
       voiceOptions(voiceSelect, voiceSelect.value, true);
       voiceOptions(botVoiceSelect, botVoiceSelect.value, false);
     });
   }
+
+  refreshPiper();
 })();

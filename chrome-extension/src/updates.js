@@ -57,6 +57,32 @@
     return { tag: best.tag_name, version: bestParts.join("."), url: url };
   };
 
+  // Web Store installs set update_url. Unpacked and GitHub installs do not.
+  GV.shouldCheckForUpdates = function shouldCheckForUpdates(manifest) {
+    return !(manifest && manifest.update_url);
+  };
+
+  // /releases/latest is the newest stable tag, such as v0.4.0.
+  GV.noticeFromLatest = function noticeFromLatest(release, current) {
+    if (!release || release.draft || release.prerelease) return null;
+    var parts = GV.parseExtensionVersion(release.tag_name);
+    var currentParts = GV.parseExtensionVersion(current) || [0];
+    if (!parts || GV.compareVersions(parts, currentParts) <= 0) return null;
+    var url = release.html_url || "";
+    var assets = release.assets || [];
+    for (var i = 0; i < assets.length; i++) {
+      var asset = assets[i];
+      if (asset && asset.name === "Grok-Voice-Reader-Extension.zip" && asset.browser_download_url) {
+        url = asset.browser_download_url;
+      }
+    }
+    return { tag: release.tag_name, version: parts.join("."), url: url };
+  };
+
+  GV.updateNoticeLabel = function updateNoticeLabel(version) {
+    return "New version " + version + " available";
+  };
+
   GV.updateCheckDue = function updateCheckDue(lastMs, nowMs) {
     var last = Number(lastMs) || 0;
     var now = Number(nowMs) || 0;
