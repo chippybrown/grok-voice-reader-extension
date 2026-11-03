@@ -30,6 +30,13 @@
   var sentencePainter = null;
   var piperBusy = false;
   var chunkAudio = null;
+  // Control bar state (src/toolbar.js). stopHeld: Stop was pressed, so stay
+  // quiet and unoutlined until Play or a reply click.
+  var stopHeld = false;
+  var watching = true;
+  var toolbar = null;
+  var paraPos = { reply: -1, para: -1 };
+  var lastBotId = "";
 
   var playback = GV.createPlayback({
     onSpeak: function (text, item) {
@@ -47,11 +54,139 @@
   function paintSpoken(phrase, charIndex) {
     var ui = sentenceUi();
     if (!ui || !readingEl) return;
-    ui.show(readingEl, phrase, charIndex);
+    var range = ui.show(readingEl, phrase, charIndex);
+    if (range) pointAt(range.startContainer);
   }
 
   function clearSpoken() {
     if (sentencePainter) sentencePainter.clear();
+  }
+
+  // Voice pointer: mark the paragraph that holds the sentence being read.
+  function pointAt(node) {
+    if (!GV.replyParagraphs || !readingEl) return;
+    var paras = GV.replyParagraphs(readingEl);
+    for (var i = 0; i < paras.length; i++) {
+      if (paras[i] === node || paras[i].contains(node)) {
+        paraPos = { reply: playback.state().index, para: i };
+        GV.markParagraph(document, paras[i]);
+        return;
+      }
+    }
+  }
+
+  function clearPointer() {
+    paraPos = { reply: -1, para: -1 };
+    if (GV.markParagraph) GV.markParagraph(document, null);
+  }
+
+  function paragraphCounts() {
+    var counts = [];
+    for (var i = 0; i < replyItems.length; i++) counts.push(GV.replyParagraphs(replyBody(replyItems[i])).length);
+    return counts;
+  }
+
+  // Read from one paragraph to the end of its reply.
+  function playParagraph(target) {
+    if (!target) return false;
+    var item = replyItems[target.reply];
+    if (!item) return false;
+    var body = replyBody(item);
+    var paras = GV.replyParagraphs(body);
+    var text = paras.length ? GV.speechFromParagraph(paras, target.para) : item.speech;
+    if (!text) return false;
+    stopHeld = false;
+    applyReadMode("play");
+    pausedKey = "";
+    playback.noteSpoken(item.key);
+    speakManual(text, body);
+    paraPos = { reply: target.reply, para: target.para };
+    if (paras[target.para]) GV.markParagraph(document, paras[target.para]);
+    updateBar();
+    return true;
+  }
+
+  function currentPos() {
+    var index = playback.state().index;
+    if (index < 0) index = replyItems.length - 1;
+    var para = paraPos.reply === index ? paraPos.para : -1;
+    return { reply: index, para: para };
+  }
+
+  // Back / Forward one paragraph. Shift (or whole=true) jumps a reply.
+  function stepParagraph(dir, whole) {
+    var counts = paragraphCounts();
+    var plan = whole ? GV.planReplyJump(currentPos(), counts, dir) : GV.planParagraphStep(currentPos(), counts, dir);
+    if (!plan) {
+      doEnd();
+      return false;
+    }
+    return playParagraph(plan);
+  }
+
+  // Stop: silence, no outline, no pointer. Quiet until Play or a reply click.
+  function doStop() {
+    stopSpeaking();
+    clearPointer();
+    stopHeld = true;
+    updateBar();
+  }
+
+  // End: silence, outline the newest reply, and wait for the next new one.
+  function doEnd() {
+    stopSpeaking();
+    clearPointer();
+    stopHeld = false;
+    applyReadMode("play");
+    var replies = GV.detectAssistantReplies(document);
+    if (session.isEnabled()) session.arm(recordsFrom(replies));
+    var last = replyItems.length ? replyItems[replyItems.length - 1] : null;
+    if (last) {
+      playback.select(last.key);
+      showReading(replyBody(last));
+    }
+    updateBar();
+  }
+
+  function updateBar() {
+    if (!toolbar) return;
+    toolbar.update(GV.toolbarStatus({ enabled: watching, mode: playback.state().mode, stopHeld: stopHeld }));
+  }
+
+  function onBarAction(action, event) {
+    var shift = Boolean(event && event.shiftKey);
+    if (action === "back") stepParagraph(-1, shift);
+    else if (action === "forward") stepParagraph(1, shift);
+    else if (action === "play-pause") onToggle();
+    else if (action === "stop") doStop();
+    else if (action === "end") doEnd();
+    updateBar();
+  }
+
+  // Only the frame that shows replies gets a bar.
+  function ensureToolbar() {
+    if (toolbar || !GV.createToolbar || !replyItems.length || !document.body) return;
+    toolbar = GV.createToolbar(document, {
+      onAction: onBarAction,
+      load: function (cb) {
+        try {
+          chrome.storage.local.get({ toolbar: GV.DEFAULTS.toolbar }, function (stored) { cb(stored && stored.toolbar); });
+        } catch (err) { cb(null); }
+      },
+      save: function (pos) {
+        try { chrome.storage.local.set({ toolbar: pos }); } catch (err) { /* storage can be unavailable in a test page */ }
+      }
+    });
+    updateBar();
+  }
+
+  function onBarKey(event) {
+    var action = GV.barShortcutAction ? GV.barShortcutAction(event) : "";
+    if (!action || !toolbar) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (action === "collapse") toolbar.setCollapsed(!toolbar.collapsed());
+    else onBarAction(action, null);
   }
 
   var speechQueue = GV.createSpeechQueue({
@@ -107,6 +242,7 @@
       clearSpoken();
       playback.markEnded();
       showReading(playback.state().body);
+      updateBar();
     }
   });
 
@@ -195,6 +331,10 @@
     }
     botKey = nextKey;
     botIdentity = identity;
+    // Switching bots skips to the newest reply there (setting, default on).
+    var change = GV.planBotChange ? GV.planBotChange(lastBotId, identity.id, botSettings.autoEndOnBotSwitch) : "none";
+    lastBotId = identity.id;
+    if (change === "end") setTimeout(doEnd, 0);
     botSettings.bots = bots;
     if (chrome.storage && chrome.storage.local) {
       try { chrome.storage.local.set({ bots: bots }); } catch (err) { /* storage can be unavailable in a test page */ }
@@ -222,22 +362,27 @@
   // Pause remembers the sentence. Play on that same reply continues.
   // Play on a reply that only has the outline starts at the beginning.
   function onToggle() {
+    stopHeld = false;
     var plan = GV.planToggle(readMode, playback.state(), pausedKey);
     applyReadMode(plan.readMode);
     if (plan.do === "pause") {
       if (playback.state().mode === "playing") playback.toggle();
       pausedKey = playback.state().key;
       showReading();
+      updateBar();
       return;
     }
     if (plan.do === "resume") {
       playback.toggle();
       showReading();
+      updateBar();
       return;
     }
     pausedKey = "";
+    clearPointer();
     var key = playback.state().key;
     if (key) playback.playFromStart(key);
+    updateBar();
   }
 
   function replyBody(item) {
@@ -294,12 +439,15 @@
   function onReplyClick(element) {
     var plan = GV.planReplyClick(readMode, highlightedElement(), element, playback.state(), pausedKey);
     if (plan.do === "ignore") return;
+    stopHeld = false;
     if (plan.do === "start") {
       var item = itemForElement(element);
       if (!item) return;
       applyReadMode("play");
       pausedKey = "";
+      clearPointer();
       playback.playFromStart(item.key);
+      updateBar();
       return;
     }
     onToggle();
@@ -327,7 +475,14 @@
       return;
     }
     var item = itemForSpeech(text);
-    var plan = GV.planNewReply(readMode);
+    var plan = GV.planNewReply(readMode, stopHeld);
+    if (!plan.highlight) {
+      lastDetect.reason = "stopped";
+      lastDetect.snippet = snippetOf(text);
+      logResolve();
+      return;
+    }
+    clearPointer();
     if (!plan.speak) {
       clearSpoken();
       if (item) playback.select(item.key);
@@ -598,6 +753,7 @@
   }
 
   function applyEnabled(on) {
+    watching = Boolean(on);
     session.setEnabled(on);
     if (on) {
       session.arm(recordsFrom(GV.detectAssistantReplies(document)));
@@ -608,6 +764,7 @@
     }
     safeSend({ type: "watch-state", enabled: Boolean(on) });
     scheduleScan();
+    updateBar();
   }
 
   function scan() {
@@ -626,6 +783,8 @@
     playback.setItems(replyItems);
     if (playback.state().mode !== "stopped") showReading();
     updateDebug(replies);
+    ensureToolbar();
+    updateBar();
     var reason = "disabled";
     if (!session.isEnabled()) reason = "disabled";
     else if (!report.blockCount) reason = "no-streamdown-blocks";
@@ -708,7 +867,7 @@
   chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
     if (!message || typeof message.type !== "string") return;
     if (message.type === "stop") {
-      stopSpeaking();
+      doStop();
       sendResponse({ ok: true });
       return;
     }
@@ -730,8 +889,11 @@
       } else {
         applyReadMode("play");
         pausedKey = "";
+        stopHeld = false;
+        clearPointer();
         played = message.type === "previous" ? playback.previous() : playback.next();
         showReading();
+        updateBar();
       }
       sendResponse({ ok: Boolean(played), text: played || "", mode: playback.state().mode });
       return;
@@ -768,12 +930,14 @@
       readMode = GV.normalizeReadMode(changes.readMode.newValue);
       showReading();
     }
+    if (changes.autoEndOnBotSwitch) botSettings.autoEndOnBotSwitch = changes.autoEndOnBotSwitch.newValue !== false;
     if (changes.enabled) applyEnabled(changes.enabled.newValue !== false);
   });
 
   function boot() {
     if (GV.bindReplyClick) GV.bindReplyClick(document, findReplyElement, onReplyClick);
     startObserver();
+    document.addEventListener("keydown", onBarKey, true);
     var synth = getSynth();
     if (synth && synth.addEventListener) {
       synth.addEventListener("voiceschanged", rememberVoice);

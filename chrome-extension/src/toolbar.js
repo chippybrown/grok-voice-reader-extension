@@ -56,6 +56,10 @@
   GV.planParagraphStep = function planParagraphStep(pos, counts, dir) {
     if (!counts || !counts.length) return null;
     var reply = pos && pos.reply >= 0 ? Math.min(pos.reply, counts.length - 1) : counts.length - 1;
+    // No marked paragraph yet: Forward starts this reply, Back the one before.
+    if (!pos || !(pos.para >= 0)) {
+      if (dir > 0 && counts[reply] > 0) return { reply: reply, para: 0 };
+    }
     var para = pos && pos.para >= 0 ? pos.para : 0;
     if (dir < 0) {
       if (para > 0) return { reply: reply, para: para - 1 };
@@ -198,6 +202,7 @@
     var dot = shadow.querySelector(".dot");
     var toggle = shadow.querySelector('[data-action="play-pause"]');
     var dragged = false;
+    var shown = "";
 
     function view() { return doc.defaultView || root; }
 
@@ -283,6 +288,10 @@
       host: host,
       // status: watching | reading | paused | stopped
       update: function update(status) {
+        if (!host.isConnected) (doc.body || doc.documentElement).appendChild(host);
+        // Repaint only on a change. The page observer sees shadow edits too.
+        if (status === shown) return;
+        shown = status;
         var info = GV.STATUS_LIGHTS[status] || GV.STATUS_LIGHTS.watching;
         light.style.background = info.color;
         light.style.color = info.color;
@@ -292,7 +301,6 @@
         toggle.innerHTML = GV.controlIcon(playing ? "pause" : "play");
         toggle.title = playing ? t.pause : t.play;
         toggle.setAttribute("aria-label", toggle.title);
-        if (!host.isConnected) (doc.body || doc.documentElement).appendChild(host);
       },
       setCollapsed: setCollapsed,
       collapsed: function () { return pos.collapsed; }
