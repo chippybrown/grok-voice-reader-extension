@@ -37,6 +37,7 @@
   var toolbar = null;
   var paraPos = { reply: -1, para: -1 };
   var lastBotId = "";
+  var showBar = true;
 
   var playback = GV.createPlayback({
     onSpeak: function (text, item) {
@@ -165,7 +166,7 @@
 
   // Only the frame that shows replies gets a bar.
   function ensureToolbar() {
-    if (toolbar || !GV.createToolbar || !replyItems.length || !document.body) return;
+    if (toolbar || !showBar || !GV.createToolbar || !replyItems.length || !document.body) return;
     toolbar = GV.createToolbar(document, {
       onAction: onBarAction,
       load: function (cb) {
@@ -180,12 +181,24 @@
     updateBar();
   }
 
+  // Popup switch, applied live. Off removes the bar; the keys stay on.
+  function applyShowBar(on) {
+    showBar = on !== false;
+    if (!showBar && toolbar) {
+      toolbar.destroy();
+      toolbar = null;
+    }
+    if (showBar) ensureToolbar();
+  }
+
   function onBarKey(event) {
     var action = GV.barShortcutAction ? GV.barShortcutAction(event) : "";
-    if (!action || !toolbar) return;
+    if (!action || !replyItems.length) return;
     event.preventDefault();
     event.stopPropagation();
-    if (action === "collapse") toolbar.setCollapsed(!toolbar.collapsed());
+    if (action === "collapse") {
+      if (toolbar) toolbar.setCollapsed(!toolbar.collapsed());
+    }
     else onBarAction(action, null);
   }
 
@@ -930,6 +943,7 @@
       readMode = GV.normalizeReadMode(changes.readMode.newValue);
       showReading();
     }
+    if (changes.showToolbar) applyShowBar(changes.showToolbar.newValue !== false);
     if (changes.autoEndOnBotSwitch) botSettings.autoEndOnBotSwitch = changes.autoEndOnBotSwitch.newValue !== false;
     if (changes.enabled) applyEnabled(changes.enabled.newValue !== false);
   });
@@ -947,6 +961,7 @@
       rate = GV.clampRate(stored.rate);
       debug = stored.debug === true;
       readMode = GV.normalizeReadMode(stored.readMode);
+      showBar = GV.toolbarWanted(stored);
       syncBot();
       applyEnabled(stored.enabled !== false);
       scheduleScan();

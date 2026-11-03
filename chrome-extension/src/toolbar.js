@@ -85,6 +85,11 @@
     return { reply: next, para: 0 };
   };
 
+  // Popup switch "Show on-page control bar". Missing means on.
+  GV.toolbarWanted = function toolbarWanted(stored) {
+    return !stored || stored.showToolbar !== false;
+  };
+
   // A different bot (not the first one seen in this tab) means End.
   GV.planBotChange = function planBotChange(previousId, nextId, autoEnd) {
     if (!previousId || !nextId || previousId === nextId) return "none";
@@ -303,6 +308,11 @@
         toggle.setAttribute("aria-label", toggle.title);
       },
       setCollapsed: setCollapsed,
+      // Take the bar off the page. Keys and the corner button keep working.
+      destroy: function destroy() {
+        if (view().removeEventListener) view().removeEventListener("resize", place);
+        if (host.parentNode) host.parentNode.removeChild(host);
+      },
       collapsed: function () { return pos.collapsed; }
     };
   };

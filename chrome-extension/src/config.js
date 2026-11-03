@@ -71,6 +71,7 @@
     betaUpdates: false,
     piperPromptDismissed: false,
     autoEndOnBotSwitch: true,
+    showToolbar: true,
     toolbar: { x: -1, y: -1, collapsed: false },
     bots: {}
   };

@@ -124,3 +124,15 @@ test("bar renders in a shadow root, sends actions, and collapses", () => {
   shadow.querySelector('[data-action="expand"]').click();
   assert.equal(bar.collapsed(), false);
 });
+
+test("Show on-page control bar: default on, off removes the bar", () => {
+  const { dom, GV: G } = load();
+  assert.equal(G.DEFAULTS.showToolbar, true);
+  assert.equal(G.toolbarWanted({}), true);
+  assert.equal(G.toolbarWanted({ showToolbar: true }), true);
+  assert.equal(G.toolbarWanted({ showToolbar: false }), false);
+  const bar = G.createToolbar(dom.window.document, {});
+  assert.ok(dom.window.document.querySelector("[data-grok-voice-controls=bar]"));
+  bar.destroy();
+  assert.equal(dom.window.document.querySelector("[data-grok-voice-controls=bar]"), null);
+});

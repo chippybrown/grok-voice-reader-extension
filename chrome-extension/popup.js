@@ -11,6 +11,7 @@
   var newBotsInput = document.getElementById("new-bots");
   var betaInput = document.getElementById("beta");
   var autoEndInput = document.getElementById("auto-end");
+  var showBarInput = document.getElementById("show-bar");
   var rateInput = document.getElementById("rate");
   var rateValue = document.getElementById("rate-value");
   var statusNode = document.getElementById("status");
@@ -207,6 +208,10 @@
     save({ newBotsAutoRead: newBotsInput.checked });
   });
 
+  showBarInput.addEventListener("change", function () {
+    save({ showToolbar: showBarInput.checked });
+  });
+
   autoEndInput.addEventListener("change", function () {
     save({ autoEndOnBotSwitch: autoEndInput.checked });
   });
@@ -330,6 +335,7 @@
     newBotsInput.checked = stored.newBotsAutoRead !== false;
     betaInput.checked = stored.betaUpdates === true;
     autoEndInput.checked = stored.autoEndOnBotSwitch !== false;
+    showBarInput.checked = stored.showToolbar !== false;
     storedBots = stored.bots || {};
     rateInput.value = String(GV.clampRate(stored.rate));
     showRate(rateInput.value);
