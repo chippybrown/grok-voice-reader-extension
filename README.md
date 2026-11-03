@@ -1,31 +1,32 @@
 # Grok Voice Reader
 
-[![Download](https://img.shields.io/badge/Download-brightgreen?style=for-the-badge)](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest)
+[![Coming soon to the Chrome Web Store](https://img.shields.io/badge/Coming%20soon%20to%20the%20Chrome%20Web%20Store-brightgreen?style=for-the-badge)](#coming-soon)
+
+<!-- TODO: replace the badge link above with the Chrome Web Store listing URL after it is approved. -->
 
 This add-on reads a new Grok reply out loud. It works in Chrome, Edge, and Brave.
 
-## Easy install
+## Install from the Chrome Web Store
 
-On Windows, download [Grok-Voice-Reader-Setup.exe](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest/download/Grok-Voice-Reader-Setup.exe) and run it. It copies the add-on to `%LOCALAPPDATA%\Grok Voice Reader\extension` and opens the extensions page.
+<a id="coming-soon"></a>
 
-On Linux, download [Grok-Voice-Reader-x86_64.AppImage](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest/download/Grok-Voice-Reader-x86_64.AppImage) and run it. It copies the add-on to `~/.local/share/grok-voice-reader/extension` and opens the extensions page.
+**Chrome:** Coming soon to the Chrome Web Store. The badge above will open the listing after it is approved.
 
-Then turn on **Developer mode**. Click **Load unpacked**. Pick that folder.
+**Edge:** Open that same listing, turn on **Allow extensions from other stores**, then click **Add**.
+
+**Brave:** Open that same listing and click **Add**.
+
+## Install from GitHub
+
+[![Download](https://img.shields.io/badge/Download-brightgreen?style=for-the-badge)](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest)
+
+On Windows, run [Grok-Voice-Reader-Setup.exe](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest/download/Grok-Voice-Reader-Setup.exe). It copies the add-on to `%LOCALAPPDATA%\Grok Voice Reader\extension`.
+
+On Linux, run [Grok-Voice-Reader-x86_64.AppImage](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest/download/Grok-Voice-Reader-x86_64.AppImage). It copies the add-on to `~/.local/share/grok-voice-reader/extension`.
+
+Or download [Grok-Voice-Reader-Extension.zip](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest/download/Grok-Voice-Reader-Extension.zip), unzip it, turn on **Developer mode**, click **Load unpacked**, and pick the folder.
 
 Refresh the Grok tab, then click the page once.
-
-## Install from the zip
-
-Use this if you do not want the Windows or Linux installer.
-
-1. Download [Grok-Voice-Reader-Extension.zip](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest/download/Grok-Voice-Reader-Extension.zip) and unzip it. On Windows, right-click the zip and choose **Extract All**. On a Mac, double-click the zip. Put the folder somewhere you will keep, such as Documents. It must contain a file named `manifest.json`.
-2. Open the extensions page. Type one of these in the address bar and press Enter:
-   - Chrome: `chrome://extensions`
-   - Edge: `edge://extensions`
-   - Brave: `brave://extensions`
-3. Turn on **Developer mode**. Click **Load unpacked**. Pick the unzipped folder.
-
-Leave that folder where it is. If you move or delete it, the add-on stops working.
 
 ## Playing a reply
 
@@ -44,3 +45,5 @@ The sentence being read is tinted yellow-green. If you scroll away, the page wai
 ## Each bot
 
 Click the Grok Voice Reader icon. The popup has a voice and an on or off switch for the bot you have open. **Voice for this bot** picks the voice. **Read this bot aloud** turns reading on or off for that bot.
+
+Privacy policy: [PRIVACY.md](PRIVACY.md).
