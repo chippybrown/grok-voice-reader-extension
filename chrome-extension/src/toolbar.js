@@ -117,7 +117,7 @@
     if (!doc || !doc.getElementById || doc.getElementById("grok-voice-paragraph-style")) return;
     var style = doc.createElement("style");
     style.id = "grok-voice-paragraph-style";
-    style.textContent = "." + PARA_CLASS + "{box-shadow:inset 4px 0 0 " + GV.PARA_MARK + " !important;"
+    style.textContent = "." + PARA_CLASS + "{box-shadow:-8px 0 0 -4px " + GV.PARA_MARK + " !important;"
       + "background-color:rgba(74,163,255,0.08) !important;border-radius:4px;}";
     (doc.head || doc.documentElement).appendChild(style);
   }
