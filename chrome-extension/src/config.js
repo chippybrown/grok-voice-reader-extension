@@ -51,6 +51,7 @@
     voiceURI: "",
     rate: 1,
     debug: false,
+    readMode: "play",
     newBotsAutoRead: true,
     betaUpdates: false,
     bots: {}

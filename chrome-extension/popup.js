@@ -160,15 +160,6 @@
   }
 
   function labelButtons() {
-    var tips = GV.controlTooltips();
-    var previous = document.getElementById("previous");
-    var next = document.getElementById("next");
-    previous.innerHTML = GV.controlIcon("previous");
-    next.innerHTML = GV.controlIcon("next");
-    previous.title = tips.previous;
-    next.title = tips.next;
-    previous.setAttribute("aria-label", tips.previous);
-    next.setAttribute("aria-label", tips.next);
     document.getElementById("stop").title = "Stop reading";
     document.getElementById("replay").title = "Replay the last reply";
     paintPlay("stopped");
@@ -208,19 +199,11 @@
     save({ rate: GV.clampRate(rateInput.value) });
   });
 
-  document.getElementById("previous").addEventListener("click", function () {
-    askBackground({ type: "broadcast", command: "previous" }).then(refreshStatus);
-  });
-
   playButton.addEventListener("click", function () {
     askBackground({ type: "broadcast", command: "play-pause" }).then(function (response) {
       paintPlay(response && response.mode);
       refreshStatus();
     });
-  });
-
-  document.getElementById("next").addEventListener("click", function () {
-    askBackground({ type: "broadcast", command: "next" }).then(refreshStatus);
   });
 
   document.getElementById("stop").addEventListener("click", function () {

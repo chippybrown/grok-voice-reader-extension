@@ -25,6 +25,9 @@
   var readingEl = null;
   var readingMode = "";
   var botKey = "";
+  var readMode = "play";
+  var pausedKey = "";
+  var sentencePainter = null;
 
   var playback = GV.createPlayback({
     onSpeak: function (text, item) {
@@ -34,29 +37,57 @@
     onResume: resumeSpeech
   });
 
+  function sentenceUi() {
+    if (!sentencePainter && GV.createSentencePainter) sentencePainter = GV.createSentencePainter(document);
+    return sentencePainter;
+  }
+
+  function paintSpoken(phrase, charIndex) {
+    var ui = sentenceUi();
+    if (!ui || !readingEl) return;
+    ui.show(readingEl, phrase, charIndex);
+  }
+
+  function clearSpoken() {
+    if (sentencePainter) sentencePainter.clear();
+  }
+
   var speechQueue = GV.createSpeechQueue({
-    speak: function (text, hooks) { speakUtterance(text, hooks); },
+    speak: function (text, hooks) {
+      hooks = hooks || {};
+      var start = hooks.onstart;
+      var boundary = hooks.onboundary;
+      hooks.onstart = function () {
+        if (start) start();
+        paintSpoken(text, null);
+      };
+      hooks.onboundary = function (event) {
+        if (boundary) boundary(event);
+        if (event && event.name === "word") paintSpoken(text, event.charIndex);
+      };
+      speakUtterance(text, hooks);
+    },
     cancel: function () {
       var synth = getSynth();
       if (synth && synth.cancel) {
         try { synth.cancel(); } catch (err) { /* already quiet */ }
       }
     },
-    pause: function () {
+    isSpeaking: function () {
       var synth = getSynth();
-      if (synth && synth.speaking && !synth.paused && typeof synth.pause === "function") {
-        try { synth.pause(); return true; } catch (err) { return false; }
-      }
-      return false;
+      return Boolean(synth && (synth.speaking || synth.pending));
     },
-    resume: function () {
+    keepalive: function () {
       var synth = getSynth();
-      if (synth && synth.paused && typeof synth.resume === "function") {
-        try { synth.resume(); return true; } catch (err) { return false; }
+      if (synth && synth.speaking && typeof synth.resume === "function") {
+        try { synth.resume(); } catch (err) { /* engine already running */ }
       }
-      return false;
     },
-    voice: function () { return voiceForUtterance(); },
+    // Let cancel() finish before the next sentence. Chrome drops a speak()
+    // that runs inside onend, and stalls the engine after about 15 seconds.
+    gapMs: 50,
+    watchdogMs: 1200,
+    keepaliveMs: 10000,
     onerror: function (event, text) {
       if (event && event.error === "not-allowed") {
         queuedSpeech = text;
@@ -64,6 +95,7 @@
       }
     },
     onfinished: function () {
+      clearSpoken();
       playback.markEnded();
       showReading(playback.state().body);
     }
@@ -164,10 +196,46 @@
   function controlOptions() {
     return {
       mode: playback.state().mode,
-      onPrevious: function () { playback.previous(); },
-      onToggle: function () { playback.toggle(); showReading(); },
-      onNext: function () { playback.next(); }
+      onToggle: onToggle
     };
+  }
+
+  function applyReadMode(mode) {
+    mode = GV.normalizeReadMode(mode);
+    if (mode === readMode) return;
+    readMode = mode;
+    if (chrome.storage && chrome.storage.local) {
+      try { chrome.storage.local.set({ readMode: mode }); } catch (err) { /* storage can be unavailable in a test page */ }
+    }
+  }
+
+  // Pause remembers the sentence. Play on that same reply continues.
+  // Play on a reply that only has the outline starts at the beginning.
+  function onToggle() {
+    var plan = GV.planToggle(readMode, playback.state(), pausedKey);
+    applyReadMode(plan.readMode);
+    if (plan.do === "pause") {
+      if (playback.state().mode === "playing") playback.toggle();
+      pausedKey = playback.state().key;
+      showReading();
+      return;
+    }
+    if (plan.do === "resume") {
+      playback.toggle();
+      showReading();
+      return;
+    }
+    pausedKey = "";
+    var key = playback.state().key;
+    if (key) playback.playFromStart(key);
+  }
+
+  function replyBody(item) {
+    return item && (item.body || item.element);
+  }
+
+  function controlsOn(target) {
+    return Boolean(target && target.querySelector && target.querySelector("[data-grok-voice-controls]"));
   }
 
   function showReading(element) {
@@ -179,13 +247,54 @@
       readingMode = "";
       return;
     }
-    if (readingEl === target && readingMode === mode && target.classList.contains("grok-voice-reading")) return;
+    if (readingEl === target && readingMode === mode && target.classList.contains("grok-voice-reading") && controlsOn(target)) return;
     readingEl = target;
     readingMode = mode;
     GV.placeReadingControls(document, target, controlOptions());
   }
 
+  function findReplyElement(node) {
+    var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
+    if (!el) return null;
+    var i;
+    for (i = replyItems.length - 1; i >= 0; i--) {
+      var body = replyBody(replyItems[i]);
+      if (body && (body === el || (body.contains && body.contains(el)))) return body;
+    }
+    return null;
+  }
+
+  function itemForElement(element) {
+    var i;
+    for (i = 0; i < replyItems.length; i++) {
+      if (replyBody(replyItems[i]) === element) return replyItems[i];
+    }
+    return null;
+  }
+
+  function highlightedElement() {
+    if (readingEl && readingEl.isConnected !== false) return readingEl;
+    return playback.state().body || null;
+  }
+
+  // A different reply turns Play on and reads from the start.
+  // The outlined reply pauses, or continues that same reply.
+  function onReplyClick(element) {
+    var plan = GV.planReplyClick(readMode, highlightedElement(), element, playback.state(), pausedKey);
+    if (plan.do === "ignore") return;
+    if (plan.do === "start") {
+      var item = itemForElement(element);
+      if (!item) return;
+      applyReadMode("play");
+      pausedKey = "";
+      playback.playFromStart(item.key);
+      return;
+    }
+    onToggle();
+  }
+
   function pauseSpeech() {
+    clearSpoken();
     if (speechQueue) return speechQueue.pause();
     return false;
   }
@@ -196,6 +305,7 @@
   }
 
   // Automatic reads honor the per-bot checkbox. Manual controls do not.
+  // Pause still moves the outline onto a new reply, and leaves it quiet.
   function speakAuto(text) {
     if (!text) return;
     if (!GV.botAutoRead(botSettings, botIdentity)) {
@@ -205,6 +315,16 @@
       return;
     }
     var item = itemForSpeech(text);
+    var plan = GV.planNewReply(readMode);
+    if (!plan.speak) {
+      clearSpoken();
+      if (item) playback.select(item.key);
+      showReading(item && (item.body || item.element));
+      lastDetect.reason = "paused";
+      lastDetect.snippet = snippetOf(text);
+      logResolve();
+      return;
+    }
     if (item) playback.noteSpoken(item.key);
     speakManual(text, item && (item.body || item.element));
   }
@@ -214,8 +334,9 @@
     lastDetect.reason = "spoke";
     lastDetect.snippet = snippetOf(text);
     logResolve();
-    attemptSpeak(text, true);
+    clearSpoken();
     showReading(element);
+    attemptSpeak(text, true);
   }
 
   function itemForSpeech(text) {
@@ -238,6 +359,7 @@
         utterance.voice = voice;
         if (voice.lang) utterance.lang = voice.lang;
       }
+      utterance.onstart = hooks.onstart || null;
       utterance.onboundary = hooks.onboundary || null;
       utterance.onend = hooks.onend || null;
       utterance.onerror = hooks.onerror || null;
@@ -287,12 +409,14 @@
   }
 
   function stopSpeaking() {
+    clearSpoken();
     queuedSpeech = "";
     disarmUnlock();
     speakToken += 1;
     if (speechQueue) speechQueue.stop();
     session.stop();
     playback.stop();
+    pausedKey = "";
     readingEl = null;
     readingMode = "";
     if (GV.placeReadingControls) GV.placeReadingControls(document, null, controlOptions());
@@ -329,8 +453,11 @@
   }
 
   function clearDebug() {
-    var nodes = document.querySelectorAll("." + DEBUG_CLASS);
-    for (var i = 0; i < nodes.length; i++) nodes[i].classList.remove(DEBUG_CLASS);
+    if (GV.stripDebugMarks) GV.stripDebugMarks(document);
+    else {
+      var nodes = document.querySelectorAll("." + DEBUG_CLASS);
+      for (var i = 0; i < nodes.length; i++) nodes[i].classList.remove(DEBUG_CLASS);
+    }
     debugEl = null;
   }
 
@@ -400,20 +527,22 @@
 
   function updateDebug(replies) {
     if (!debug) {
-      if (debugEl) clearDebug();
+      if (debugEl || document.querySelector("." + DEBUG_CLASS)) clearDebug();
       return;
     }
     ensureDebugStyle();
-    var latest = replies.length ? replies[replies.length - 1] : null;
-    var target = latest ? (latest.body || latest.element) : null;
+    var target = readingEl && readingEl.isConnected !== false ? readingEl : null;
+    if (!target) {
+      var latest = replies.length ? replies[replies.length - 1] : null;
+      target = latest ? (latest.body || latest.element) : null;
+    }
     if (!target || target.isConnected === false) {
       clearDebug();
       return;
     }
-    if (debugEl === target && target.classList.contains(DEBUG_CLASS)) return;
-    clearDebug();
+    if (GV.keepDebugMark) GV.keepDebugMark(document, target);
+    else target.classList.add(DEBUG_CLASS);
     debugEl = target;
-    target.classList.add(DEBUG_CLASS);
   }
 
   function applyEnabled(on) {
@@ -534,6 +663,8 @@
     if (message.type === "replay") {
       var text = session.getLastSpoken();
       var item = itemForSpeech(text);
+      applyReadMode("play");
+      pausedKey = "";
       if (item) playback.noteSpoken(item.key);
       if (text) speakManual(text, item && (item.body || item.element));
       sendResponse({ ok: Boolean(text), text: text || "" });
@@ -541,11 +672,13 @@
     }
     if (message.type === "previous" || message.type === "next" || message.type === "play-pause") {
       var played = "";
-      if (message.type === "previous") played = playback.previous();
-      else if (message.type === "next") played = playback.next();
-      else {
-        var toggled = playback.toggle();
-        played = toggled.speech || "";
+      if (message.type === "play-pause") {
+        onToggle();
+        played = playback.state().speech || "";
+      } else {
+        applyReadMode("play");
+        pausedKey = "";
+        played = message.type === "previous" ? playback.previous() : playback.next();
         showReading();
       }
       sendResponse({ ok: Boolean(played), text: played || "", mode: playback.state().mode });
@@ -579,20 +712,12 @@
       if (!debug) clearDebug();
       scheduleScan();
     }
+    if (changes.readMode) readMode = GV.normalizeReadMode(changes.readMode.newValue);
     if (changes.enabled) applyEnabled(changes.enabled.newValue !== false);
   });
 
   function boot() {
-    if (GV.bindReplyClick) {
-      GV.bindReplyClick(document, function (node) {
-        var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
-        return Boolean(readingEl && el && readingEl.contains(el));
-      }, function () {
-        playback.toggle();
-        showReading();
-      });
-    }
-    if (GV.watchComposer) GV.watchComposer(document, controlOptions);
+    if (GV.bindReplyClick) GV.bindReplyClick(document, findReplyElement, onReplyClick);
     startObserver();
     var synth = getSynth();
     if (synth && synth.addEventListener) {
@@ -602,6 +727,7 @@
       botSettings = stored;
       rate = GV.clampRate(stored.rate);
       debug = stored.debug === true;
+      readMode = GV.normalizeReadMode(stored.readMode);
       syncBot();
       applyEnabled(stored.enabled !== false);
       scheduleScan();
