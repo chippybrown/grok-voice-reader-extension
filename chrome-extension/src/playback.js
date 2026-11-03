@@ -463,6 +463,9 @@
         audio = null;
         try { cancel(); } catch (err) { /* already quiet */ }
       },
+      attachAudio: function (element) {
+        audio = element || null;
+      },
       state: function () {
         return { chunks: chunks.slice(), index: index, charIndex: charIndex, paused: paused };
       }

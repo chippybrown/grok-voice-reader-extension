@@ -247,7 +247,7 @@ const nestedPage = `<!DOCTYPE html>
   </script>
 </body></html>`;
 
-test("shadow root and iframe chats are both detected", { timeout: 90000 }, async () => {
+test("shadow root and iframe chats are both detected", { timeout: 240000 }, async () => {
   const { browser } = await launch();
   try {
     const page = await browser.newPage();

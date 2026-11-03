@@ -102,6 +102,22 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     });
     return true;
   }
+  if (message.type === "piper-synth") {
+    ensurePiperOffscreen().then(function () {
+      chrome.runtime.sendMessage({
+        type: "piper-run",
+        voiceId: message.voiceId,
+        text: message.text
+      }, function (response) {
+        void chrome.runtime.lastError;
+        try { sendResponse(response || { ok: false }); } catch (err) { /* port closed */ }
+      });
+    }).catch(function () {
+      try { sendResponse({ ok: false, error: "offscreen" }); } catch (err) { /* port closed */ }
+    });
+    return true;
+  }
+  if (message.type === "piper-run") return;
   if (message.type === "broadcast" && sender.tab == null) {
     broadcastCommand(message.command, sendResponse);
     return true;
@@ -157,13 +173,47 @@ function broadcastCommand(command, sendResponse) {
   });
 }
 
+var piperOffscreenReady = null;
+
+function ensurePiperOffscreen() {
+  if (piperOffscreenReady) return piperOffscreenReady;
+  piperOffscreenReady = new Promise(function (resolve, reject) {
+    function onReady(message) {
+      if (!message || message.type !== "piper-ready") return;
+      chrome.runtime.onMessage.removeListener(onReady);
+      resolve();
+    }
+    chrome.runtime.onMessage.addListener(onReady);
+    chrome.offscreen.hasDocument().then(function (exists) {
+      if (exists) {
+        chrome.runtime.onMessage.removeListener(onReady);
+        resolve();
+        return;
+      }
+      return chrome.offscreen.createDocument({
+        url: "piper-offscreen.html",
+        reasons: ["AUDIO_PLAYBACK"],
+        justification: "Turn a downloaded Piper voice model into speech on this computer."
+      });
+    }).catch(function (err) {
+      chrome.runtime.onMessage.removeListener(onReady);
+      piperOffscreenReady = null;
+      reject(err);
+    });
+  });
+  return piperOffscreenReady;
+}
+
 function checkUpdates(force) {
+  if (!GV.shouldCheckForUpdates(chrome.runtime.getManifest())) {
+    return Promise.resolve(null);
+  }
   return chrome.storage.local.get(GV.DEFAULTS).then(function (stored) {
     var now = Date.now();
     if (!force && !GV.updateCheckDue(stored.updateCheckedAt, now)) {
       return stored.updateNotice || null;
     }
-    return fetch("https://api.github.com/repos/" + GV.REPO + "/releases?per_page=30", {
+    return fetch("https://api.github.com/repos/" + GV.REPO + "/releases/latest", {
       headers: {
         Accept: "application/vnd.github+json",
         "User-Agent": "grok-voice-reader"
@@ -171,10 +221,8 @@ function checkUpdates(force) {
     }).then(function (response) {
       if (!response.ok) throw new Error("status " + response.status);
       return response.json();
-    }).then(function (list) {
-      var notice = GV.pickExtensionUpdate(list, chrome.runtime.getManifest().version, {
-        beta: stored.betaUpdates === true
-      });
+    }).then(function (release) {
+      var notice = GV.noticeFromLatest(release, chrome.runtime.getManifest().version);
       return chrome.storage.local.set({
         updateCheckedAt: now,
         updateNotice: notice

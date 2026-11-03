@@ -1,6 +1,6 @@
 # Grok Voice Reader
 
-A browser add-on that reads a new Grok reply out loud. It works in the tab you have open, including a Grok Bot chat at grok.com/bot. This build is **0.3.1**. The popup shows that number next to the title.
+A browser add-on that reads a new Grok reply out loud. It works in the tab you have open, including a Grok Bot chat at grok.com/bot. This build is **0.4.0**. The popup shows that number next to the title.
 
 You need Chrome, Edge, or Brave, and a speech voice already installed on the computer. Those browsers use the voices that come with Windows or macOS. In Edge, Jenny Online (Natural) is one of those voices.
 
@@ -30,7 +30,7 @@ Or install from GitHub. On Windows, run [Grok-Voice-Reader-Setup.exe](https://gi
 
 ## Playing a reply
 
-Only one reply has the green outline. **Play/Pause** sits in the lower-right corner of that box.
+Only one reply is outlined. Play mode is green. Pause mode is light orange, including a new reply the outline moves to while paused. **Play/Pause** sits in the lower-right corner of that box.
 
 Click a different reply to outline it and read it from the start. That turns Play on. Click the outlined reply to pause, or to continue the same reply from where it stopped.
 

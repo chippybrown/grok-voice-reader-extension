@@ -10,6 +10,15 @@
     <h1>Grok Voice Reader <span id="version"></span></h1>
     <p id="status">Checking this tab…</p>
   </header>
+  <section id="piper-offer" hidden>
+    <p>This browser has few English voices. You can download a free Piper voice. It stays on this computer.</p>
+    <button id="piper-offer-yes" type="button">Show voices</button>
+    <button id="piper-offer-no" type="button">Not now</button>
+  </section>
+  <section id="piper-list-wrap" hidden>
+    <p>Piper voices</p>
+    <ul id="piper-list"></ul>
+  </section>
   <label class="switch">
     <input id="enabled" type="checkbox">
     <span>Read new replies aloud</span>
@@ -52,6 +61,7 @@
   <script src="src/text.js"></script>
   <script src="src/bots.js"></script>
   <script src="src/controls.js"></script>
+  <script src="src/piper.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

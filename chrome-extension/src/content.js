@@ -28,6 +28,8 @@
   var readMode = "play";
   var pausedKey = "";
   var sentencePainter = null;
+  var piperBusy = false;
+  var chunkAudio = null;
 
   var playback = GV.createPlayback({
     onSpeak: function (text, item) {
@@ -68,12 +70,19 @@
       speakUtterance(text, hooks);
     },
     cancel: function () {
+      piperBusy = false;
+      if (chunkAudio) {
+        try { chunkAudio.pause(); } catch (err) { /* already quiet */ }
+        chunkAudio = null;
+      }
       var synth = getSynth();
       if (synth && synth.cancel) {
         try { synth.cancel(); } catch (err) { /* already quiet */ }
       }
     },
     isSpeaking: function () {
+      if (piperBusy) return true;
+      if (chunkAudio && !chunkAudio.paused && !chunkAudio.ended) return true;
       var synth = getSynth();
       return Boolean(synth && (synth.speaking || synth.pending));
     },
@@ -196,6 +205,7 @@
   function controlOptions() {
     return {
       mode: playback.state().mode,
+      readMode: readMode,
       onToggle: onToggle
     };
   }
@@ -247,7 +257,9 @@
       readingMode = "";
       return;
     }
-    if (readingEl === target && readingMode === mode && target.classList.contains("grok-voice-reading") && controlsOn(target)) return;
+    var wantPause = readMode === "pause";
+    if (readingEl === target && readingMode === mode && target.classList.contains("grok-voice-reading")
+        && target.classList.contains("grok-voice-paused") === wantPause && controlsOn(target)) return;
     readingEl = target;
     readingMode = mode;
     GV.placeReadingControls(document, target, controlOptions());
@@ -346,10 +358,50 @@
     return replyItems.length ? replyItems[replyItems.length - 1] : null;
   }
 
+  function speakPiper(text, hooks) {
+    hooks = hooks || {};
+    piperBusy = true;
+    chrome.runtime.sendMessage({
+      type: "piper-synth",
+      voiceId: GV.piperVoiceId(voiceURI),
+      text: text
+    }, function (response) {
+      void chrome.runtime.lastError;
+      piperBusy = false;
+      if (!response || !response.ok || !response.wav) {
+        if (hooks.onerror) hooks.onerror({ error: "synthesis-failed" });
+        return;
+      }
+      var bytes = new Uint8Array(response.wav);
+      var url = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+      var audio = new Audio(url);
+      chunkAudio = audio;
+      if (speechQueue && speechQueue.attachAudio) speechQueue.attachAudio(audio);
+      audio.onended = function () {
+        URL.revokeObjectURL(url);
+        if (chunkAudio === audio) chunkAudio = null;
+        if (speechQueue && speechQueue.attachAudio) speechQueue.attachAudio(null);
+        if (hooks.onend) hooks.onend();
+      };
+      audio.onerror = function () {
+        if (hooks.onerror) hooks.onerror({ error: "audio" });
+      };
+      audio.play().then(function () {
+        if (hooks.onstart) hooks.onstart();
+      }).catch(function () {
+        if (hooks.onerror) hooks.onerror({ error: "not-allowed" });
+      });
+    });
+  }
+
   function speakUtterance(text, hooks) {
+    hooks = hooks || {};
+    if (GV.isPiperVoice && GV.isPiperVoice(voiceURI)) {
+      speakPiper(text, hooks);
+      return;
+    }
     var synth = getSynth();
     var Utterance = root.SpeechSynthesisUtterance;
-    hooks = hooks || {};
     if (!synth || !Utterance || !text) return;
     try {
       var utterance = new Utterance(text);
@@ -712,7 +764,10 @@
       if (!debug) clearDebug();
       scheduleScan();
     }
-    if (changes.readMode) readMode = GV.normalizeReadMode(changes.readMode.newValue);
+    if (changes.readMode) {
+      readMode = GV.normalizeReadMode(changes.readMode.newValue);
+      showReading();
+    }
     if (changes.enabled) applyEnabled(changes.enabled.newValue !== false);
   });
 

@@ -8,7 +8,7 @@ The publisher is a non-trader. Contact: chip.brown@cormeg.com.
 
 The extension reads the text of a Grok reply in the tab you have open so it can speak that reply. Reading happens in the browser. The reply text is not sent to a server.
 
-Voices come from the browser's built-in speech feature (`speechSynthesis`). The extension does not download voices and does not send your voice choice anywhere.
+Voices normally come from the browser's built-in speech feature (`speechSynthesis`). If you choose a Piper voice, the extension downloads that voice model from Hugging Face (`rhasspy/piper-voices`) and stores the file in this browser only (IndexedDB). The model is data, not code. Your voice choice is not sent anywhere.
 
 These settings are saved only in the browser's local extension storage (`chrome.storage.local`):
 
@@ -19,13 +19,15 @@ These settings are saved only in the browser's local extension storage (`chrome.
 - play or pause
 - whether a beta update notice is offered
 
-## The one network request
+## Network requests
 
-About once a day the extension asks GitHub's public releases API whether a newer version exists:
+About once a day, and only if you installed from GitHub or as an unpacked extension, the extension asks GitHub whether a newer version exists:
 
-`https://api.github.com/repos/chippybrown/voice-reader-for-grokbot/releases`
+`https://api.github.com/repos/chippybrown/grok-voice-reader-extension/releases/latest`
 
-That request sends a generic label, `User-Agent: grok-voice-reader`. It does not send reply text, voice names, bot names, or account information. GitHub may log the request under its own policy.
+That request sends a generic label, `User-Agent: grok-voice-reader`. It does not send reply text, voice names, bot names, or account information. Installs from the Chrome Web Store skip this check.
+
+If you download a Piper voice, the extension fetches that model file from `huggingface.co`. The file stays on your computer. Reply text is not included in the request.
 
 ## What we do not do
 

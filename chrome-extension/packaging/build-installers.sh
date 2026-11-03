@@ -4,8 +4,8 @@ set -eu
 cd "$(dirname "$0")"
 rm -rf extension AppDir
 mkdir -p extension
-cp ../manifest.json ../popup.html ../popup.js ../popup.css ../README.md extension/
-cp -R ../src ../icons extension/
+cp ../manifest.json ../popup.html ../popup.js ../popup.css ../README.md ../piper-offscreen.html extension/
+cp -R ../src ../icons ../vendor extension/
 # The installer writes installed.html itself. Leave tests and node_modules out.
 rm -rf extension/src/*.test.js
 

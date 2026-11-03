@@ -30,7 +30,7 @@ Refresh the Grok tab, then click the page once.
 
 ## Playing a reply
 
-Only one reply has a green outline. A **Play/Pause** button sits in the lower-right corner of that box. Hold the pointer on it to see Play or Pause.
+Only one reply is outlined. Play mode is green. Pause mode is light orange, including a new reply the outline moves to while paused. A **Play/Pause** button sits in the lower-right corner of that box. Hold the pointer on it to see Play or Pause.
 
 Click a different reply to move the outline there and read that reply from the beginning. That turns Play on. The outline and the button leave every other reply.
 
@@ -45,5 +45,7 @@ The sentence being read is tinted yellow-green. If you scroll away, the page wai
 ## Each bot
 
 Click the Grok Voice Reader icon. The popup has a voice and an on or off switch for the bot you have open. **Voice for this bot** picks the voice. **Read this bot aloud** turns reading on or off for that bot.
+
+If the browser has few English voices, the popup offers free Piper voices. A voice downloads once and stays on this computer. It shows up in the same voice list.
 
 Privacy policy: [PRIVACY.md](PRIVACY.md).

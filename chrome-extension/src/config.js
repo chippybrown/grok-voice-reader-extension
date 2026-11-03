@@ -35,9 +35,13 @@
   // Quiet period after the newest reply stops changing, before it is spoken.
   GV.SETTLE_MS = 1500;
 
-  GV.REPO = "chippybrown/voice-reader-for-grokbot";
+  GV.REPO = "chippybrown/grok-voice-reader-extension";
   GV.UPDATE_INTERVAL_MS = 24 * 60 * 60 * 1000;
-  GV.EXTRA_HOSTS = ["https://api.github.com/*"];
+  GV.EXTRA_HOSTS = [
+    "https://api.github.com/*",
+    "https://huggingface.co/*",
+    "https://*.hf.co/*"
+  ];
 
   // Shown in hover tooltips. The same chords are suggested in the manifest.
   GV.SHORTCUTS = {
@@ -54,6 +58,7 @@
     readMode: "play",
     newBotsAutoRead: true,
     betaUpdates: false,
+    piperPromptDismissed: false,
     bots: {}
   };
 
