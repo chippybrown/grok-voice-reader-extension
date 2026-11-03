@@ -220,6 +220,14 @@
       ICONS.play + "</button>" +
       extra("forward", "next", "Forward one paragraph") +
       extra("end", "end", "Go to End") + "</div>";
+    // Keep presses on the corner away from Grok's own handlers (they bubble
+    // to the page and can re-render or re-select the reply).
+    ["pointerdown", "pointerup", "mousedown", "mouseup", "dblclick"].forEach(function (type) {
+      host.addEventListener(type, function (event) {
+        event.stopPropagation();
+        if (GV.debugCorner) GV.debugCorner(type, event);
+      });
+    });
     shadow.addEventListener("click", function (event) {
       var node = event.target;
       var button = node && node.closest ? node.closest("button") : null;
@@ -228,7 +236,15 @@
       event.preventDefault();
       event.stopPropagation();
       var action = button.getAttribute("data-action");
-      if (action === "play-pause") uiToggle(handlers.onToggle);
+      if (GV.debugCorner) GV.debugCorner("click " + action, event);
+      // 0.4.4: Play/Pause goes the same way as |< >| >>| (onAction), with
+      // the double-press guard. onToggle stays for pages without onAction.
+      if (action === "play-pause") {
+        uiToggle(function () {
+          if (handlers.onAction) handlers.onAction("play-pause", event);
+          else if (handlers.onToggle) handlers.onToggle();
+        });
+      }
       else if (handlers.onAction) handlers.onAction(action, event);
     });
     return host;

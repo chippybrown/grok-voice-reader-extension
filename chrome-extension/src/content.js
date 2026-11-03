@@ -29,6 +29,7 @@
   var pausedKey = "";
   var sentencePainter = null;
   var piperBusy = false;
+  var piperTicket = 0;
   var chunkAudio = null;
   // Control bar state (src/toolbar.js). stopHeld: Stop was pressed, so stay
   // quiet and unoutlined until Play or a reply click.
@@ -165,8 +166,23 @@
   function updateStrip() {
     if (!GV.setCornerExtras) return;
     var status = GV.toolbarStatus({ enabled: watching, mode: playback.state().mode, stopHeld: stopHeld });
-    GV.setCornerExtras(GV.stripWanted(status, showBar));
+    // 0.4.4: a reply with the corner keeps all four buttons while the bar
+    // switch is on, so a brief idle between sentences or Piper chunks
+    // cannot fold the group under the mouse.
+    var on = GV.cornerExtrasWanted(status, showBar, Boolean(readingEl));
+    cornerLog("extras", { status: status, mode: playback.state().mode, on: on });
+    GV.setCornerExtras(on);
   }
+
+  // Debug flag (popup) only: console.debug lines for the corner controls.
+  function cornerLog(what, info) {
+    if (!debug) return;
+    try { console.debug("[GrokVoice corner] " + what, JSON.stringify(info || {})); } catch (err) { /* debug aid */ }
+  }
+  GV.debugCorner = function (type, event) {
+    var t = event && event.composedPath ? event.composedPath()[0] : null;
+    cornerLog(type, { target: t && t.getAttribute ? t.getAttribute("data-action") || t.tagName : "", mode: playback.state().mode, stopHeld: stopHeld });
+  };
 
   // |< on the corner controls: restart the paragraph if more than 2 s in.
   function stripBack() {
@@ -176,6 +192,7 @@
   }
 
   function onBarAction(action, event) {
+    cornerLog("action " + action, { mode: playback.state().mode, para: paraPos });
     var shift = Boolean(event && event.shiftKey);
     if (action === "back") stepParagraph(-1, shift);
     else if (action === "forward") stepParagraph(1, shift);
@@ -242,6 +259,7 @@
     },
     cancel: function () {
       piperBusy = false;
+      piperTicket += 1;
       if (chunkAudio) {
         try { chunkAudio.pause(); } catch (err) { /* already quiet */ }
         chunkAudio = null;
@@ -401,6 +419,7 @@
   function onToggle() {
     stopHeld = false;
     var plan = GV.planToggle(readMode, playback.state(), pausedKey);
+    cornerLog("toggle " + plan.do, { mode: playback.state().mode, key: playback.state().key, pausedKey: pausedKey });
     applyReadMode(plan.readMode);
     if (plan.do === "pause") {
       if (playback.state().mode === "playing") playback.toggle();
@@ -418,6 +437,8 @@
     pausedKey = "";
     clearPointer();
     var key = playback.state().key;
+    if (!key && replyItems.length) key = replyItems[replyItems.length - 1].key;
+    cornerLog("toggle start", { key: key });
     if (key) playback.playFromStart(key);
     updateBar();
   }
@@ -553,12 +574,17 @@
   function speakPiper(text, hooks) {
     hooks = hooks || {};
     piperBusy = true;
+    var ticket = ++piperTicket;
     chrome.runtime.sendMessage({
       type: "piper-synth",
       voiceId: GV.piperVoiceId(voiceURI),
       text: text
     }, function (response) {
       void chrome.runtime.lastError;
+      if (ticket !== piperTicket) {
+        cornerLog("piper stale reply dropped", { ticket: ticket });
+        return;
+      }
       piperBusy = false;
       if (!response || !response.ok || !response.wav) {
         if (hooks.onerror) hooks.onerror({ error: "synthesis-failed" });

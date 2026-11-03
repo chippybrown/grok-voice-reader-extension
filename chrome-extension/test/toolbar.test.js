@@ -169,8 +169,50 @@ test("corner Play/Pause grows to |< ||/> >| >>| while reading and sends actions"
   assert.equal(host.style.bottom, "8px");
   assert.equal(host.style.right, "8px");
   for (const b of shadow.querySelectorAll("button")) b.click();
-  assert.deepEqual(seen, ["strip-back", "toggle", "forward", "end"]);
+  assert.deepEqual(seen, ["strip-back", "play-pause", "forward", "end"], "play/pause goes through onAction like the others");
   assert.equal(doc.querySelectorAll("[data-grok-voice-controls=strip]").length, 0, "no separate strip");
   G.setCornerExtras(false);
   assert.equal(host.hasAttribute("data-extras"), false);
+});
+
+// Rev 20261103 - 0.4.4 click-level regression (Grok and Eldon R. Brown - WA0UWH)
+test("real mouse presses on corner Play/Pause fire once, never as a reply click, and keep the group", async () => {
+  const { dom, GV: G } = load("<!doctype html><body><div id=r><p>One two.</p><p>Three four.</p></div></body>");
+  const win = dom.window;
+  const doc = win.document;
+  const r = doc.getElementById("r");
+  const seen = [];
+  const replyClicks = [];
+  const pageSaw = [];
+  for (const t of ["pointerdown", "mousedown", "mouseup", "click"]) doc.body.addEventListener(t, () => pageSaw.push(t));
+  G.bindReplyClick(doc, (n) => (r.contains(n) ? r : null), (el) => replyClicks.push(el));
+  const host = G.placeReadingControls(doc, r, { mode: "playing", onToggle: () => seen.push("toggle"), onAction: (a) => seen.push(a) });
+  G.setCornerExtras(true);
+  const press = (btn) => {
+    const o = { bubbles: true, composed: true, cancelable: true, button: 0, detail: 1, clientX: 5, clientY: 5 };
+    btn.dispatchEvent(new win.PointerEvent("pointerdown", o));
+    btn.dispatchEvent(new win.MouseEvent("mousedown", o));
+    btn.dispatchEvent(new win.PointerEvent("pointerup", o));
+    btn.dispatchEvent(new win.MouseEvent("mouseup", o));
+    btn.dispatchEvent(new win.MouseEvent("click", o));
+  };
+  const pp = host.shadowRoot.querySelector('[data-action="play-pause"]');
+  press(pp);
+  await new Promise((res) => setTimeout(res, 450));
+  press(pp);
+  press(host.shadowRoot.querySelector('[data-action="forward"]'));
+  await new Promise((res) => setTimeout(res, 300));
+  assert.deepEqual(seen, ["play-pause", "play-pause", "forward"]);
+  assert.equal(replyClicks.length, 0, "a corner press is not also a reply click");
+  assert.deepEqual(pageSaw, [], "Grok's page handlers never see the corner press");
+  assert.equal(host.getAttribute("data-extras"), "1");
+  assert.equal(r.querySelectorAll("[data-grok-voice-controls]").length, 1);
+});
+
+test("corner group stays expanded while a reply is outlined, folds after Stop or bar off", () => {
+  assert.equal(GV.cornerExtrasWanted("watching", true, true), true, "idle gap between sentences");
+  assert.equal(GV.cornerExtrasWanted("reading", true, false), true);
+  assert.equal(GV.cornerExtrasWanted("stopped", true, true), false);
+  assert.equal(GV.cornerExtrasWanted("reading", false, true), false);
+  assert.equal(GV.cornerExtrasWanted("watching", true, false), false);
 });

@@ -99,6 +99,13 @@
     return status === "reading" || status === "paused";
   };
 
+  // Corner group stays expanded whenever a reply is outlined (not after
+  // Stop) and the bar switch is on.
+  GV.cornerExtrasWanted = function cornerExtrasWanted(status, showBar, outlined) {
+    if (showBar === false || status === "stopped") return false;
+    return Boolean(outlined) || GV.stripWanted(status, showBar);
+  };
+
   // Popup switch "Show on-page control bar". Missing means on.
   GV.toolbarWanted = function toolbarWanted(stored) {
     return !stored || stored.showToolbar !== false;
