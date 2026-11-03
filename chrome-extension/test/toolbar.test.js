@@ -154,7 +154,7 @@ test("strip shows only while reading or paused, and follows the bar switch", () 
   assert.equal(GV.stripWanted("reading", false), false);
 });
 
-test("corner Play/Pause grows to |< ||/> >| >>| while reading and sends actions", () => {
+test("corner Play/Pause grows to |<< |< ||/> >| >>| while reading and sends actions", () => {
   const { dom, GV: G } = load("<!doctype html><body><div id=r><p>One two.</p></div></body>");
   const doc = dom.window.document;
   const seen = [];
@@ -162,14 +162,14 @@ test("corner Play/Pause grows to |< ||/> >| >>| while reading and sends actions"
   const host = G.placeReadingControls(doc, r, { mode: "playing", onToggle: () => seen.push("toggle"), onAction: (a) => seen.push(a) });
   const shadow = host.shadowRoot;
   const actions = [...shadow.querySelectorAll("button")].map((b) => b.getAttribute("data-action"));
-  assert.deepEqual(actions, ["strip-back", "play-pause", "forward", "end"], "one play/pause, no duplicate");
+  assert.deepEqual(actions, ["reply-back", "strip-back", "play-pause", "forward", "reply-forward"], "one play/pause, no duplicate");
   assert.equal(host.hasAttribute("data-extras"), false, "extras hidden until reading");
   G.setCornerExtras(true);
   assert.equal(host.getAttribute("data-extras"), "1");
   assert.equal(host.style.bottom, "8px");
   assert.equal(host.style.right, "8px");
   for (const b of shadow.querySelectorAll("button")) b.click();
-  assert.deepEqual(seen, ["strip-back", "play-pause", "forward", "end"], "play/pause goes through onAction like the others");
+  assert.deepEqual(seen, ["reply-back", "strip-back", "play-pause", "forward", "reply-forward"], "play/pause goes through onAction like the others");
   assert.equal(doc.querySelectorAll("[data-grok-voice-controls=strip]").length, 0, "no separate strip");
   G.setCornerExtras(false);
   assert.equal(host.hasAttribute("data-extras"), false);
@@ -215,4 +215,23 @@ test("corner group stays expanded while a reply is outlined, folds after Stop or
   assert.equal(GV.cornerExtrasWanted("stopped", true, true), false);
   assert.equal(GV.cornerExtrasWanted("reading", false, true), false);
   assert.equal(GV.cornerExtrasWanted("watching", true, false), false);
+});
+
+// Rev 20261103 - 0.4.5 |<< and >>| reply edges (Grok and Eldon R. Brown - WA0UWH)
+test("|<< goes to the top of this reply, then the top of the previous one", () => {
+  const c = [3, 0, 4];
+  assert.deepEqual(plain(GV.planReplyEdge({ reply: 2, para: 2 }, c, -1)), { reply: 2, para: 0 }, "middle: top of this reply");
+  assert.deepEqual(plain(GV.planReplyEdge({ reply: 2, para: 3 }, c, -1)), { reply: 2, para: 0 }, "bottom: top of this reply");
+  assert.deepEqual(plain(GV.planReplyEdge({ reply: 2, para: 0 }, c, -1)), { reply: 0, para: 0 }, "at top: previous reply, empty skipped");
+  assert.deepEqual(plain(GV.planReplyEdge({ reply: 0, para: 0 }, c, -1)), { reply: 0, para: 0 }, "first reply stays at top");
+  assert.deepEqual(plain(GV.planReplyEdge({ reply: 2, para: -1 }, c, -1)), { reply: 2, para: 0 });
+});
+
+test(">>| goes to the last paragraph of this reply, then the next reply, then End", () => {
+  const c = [3, 0, 4];
+  assert.deepEqual(plain(GV.planReplyEdge({ reply: 0, para: 0 }, c, 1)), { reply: 0, para: 2 });
+  assert.deepEqual(plain(GV.planReplyEdge({ reply: 0, para: 2 }, c, 1)), { reply: 2, para: 0 }, "empty reply skipped");
+  assert.equal(GV.planReplyEdge({ reply: 2, para: 3 }, c, 1), null, "newest last paragraph: End");
+  assert.deepEqual(plain(GV.planReplyEdge({ reply: 2, para: -1 }, c, 1)), { reply: 2, para: 3 });
+  assert.equal(GV.planReplyEdge({ reply: 0, para: 0 }, [], 1), null);
 });

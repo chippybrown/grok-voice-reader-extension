@@ -124,7 +124,7 @@
   // Back / Forward one paragraph. Shift (or whole=true) jumps a reply.
   function stepParagraph(dir, whole) {
     var counts = paragraphCounts();
-    var plan = whole ? GV.planReplyJump(currentPos(), counts, dir) : GV.planParagraphStep(currentPos(), counts, dir);
+    var plan = whole ? GV.planReplyEdge(currentPos(), counts, dir) : GV.planParagraphStep(currentPos(), counts, dir);
     if (!plan) {
       doEnd();
       return false;
@@ -197,6 +197,8 @@
     if (action === "back") stepParagraph(-1, shift);
     else if (action === "forward") stepParagraph(1, shift);
     else if (action === "strip-back") stripBack();
+    else if (action === "reply-back") stepParagraph(-1, true);
+    else if (action === "reply-forward") stepParagraph(1, true);
     else if (action === "play-pause") onToggle();
     else if (action === "stop") doStop();
     else if (action === "end") doEnd();

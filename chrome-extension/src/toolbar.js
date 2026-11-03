@@ -86,6 +86,27 @@
     return { reply: next, para: 0 };
   };
 
+  // |<< and >>| (corner) and Shift+click Back/Forward (bar): reply edges.
+  // Back: to this reply's first paragraph; already there, the previous
+  // reply's first paragraph. Forward: to this reply's last paragraph;
+  // already there, the next reply's first. null past the newest = End.
+  GV.planReplyEdge = function planReplyEdge(pos, counts, dir) {
+    if (!counts || !counts.length) return null;
+    var reply = pos && pos.reply >= 0 ? Math.min(pos.reply, counts.length - 1) : counts.length - 1;
+    var para = pos && pos.para >= 0 ? pos.para : -1;
+    var last = counts[reply] - 1;
+    var r;
+    if (dir < 0) {
+      if (para > 0) return { reply: reply, para: 0 };
+      if (para < 0 && counts[reply] > 0) return { reply: reply, para: 0 };
+      for (r = reply - 1; r >= 0; r--) if (counts[r] > 0) return { reply: r, para: 0 };
+      return counts[reply] > 0 ? { reply: reply, para: 0 } : null;
+    }
+    if (last >= 0 && para < last) return { reply: reply, para: last };
+    for (r = reply + 1; r < counts.length; r++) if (counts[r] > 0) return { reply: r, para: 0 };
+    return null;
+  };
+
   // Corner Back (|<): restart this paragraph when partway in,
   // else step back one paragraph like the bar's Back.
   GV.planStripBack = function planStripBack(pos, counts, partway) {
@@ -162,10 +183,10 @@
   function tips() {
     var k = GV.BAR_SHORTCUTS;
     return {
-      back: "Back one paragraph (" + k.back + "). Shift+click: previous reply (" + GV.SHORTCUTS.previous + ")",
+      back: "Back one paragraph (" + k.back + "). Shift+click: top of this reply, then previous reply",
       pause: "Pause (" + GV.SHORTCUTS.playPause + ")",
       play: "Play (" + GV.SHORTCUTS.playPause + ")",
-      forward: "Forward one paragraph (" + k.forward + "). Shift+click: next reply (" + GV.SHORTCUTS.next + ")",
+      forward: "Forward one paragraph (" + k.forward + "). Shift+click: last paragraph, then next reply",
       stop: "Stop, and stay quiet until Play (" + k.stop + ")",
       end: "End: skip to the newest reply and wait (" + k.end + ")",
       summary: "Summarize / Verbose (coming later)",
