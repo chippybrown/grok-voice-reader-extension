@@ -1,5 +1,7 @@
 // One Play/Pause button in the lower-right corner of the outlined reply.
-// The composer bar is left alone. Previous and Next stay on the keyboard.
+// Rev 20261103 (Grok and Eldon R. Brown - WA0UWH): while reading or paused
+// the corner grows to |<< |< ||/> >| >>| >>>| (0.4.8), faded until hover.
+// The composer bar is left alone.
 (function (root) {
   "use strict";
 
@@ -11,13 +13,20 @@
   GV.OUTLINE_PLAY = "#3ddc84";
   GV.OUTLINE_PAUSE = "#FFB366";
   var currentHost = null;
-  var handlers = { onToggle: null };
+  var handlers = { onToggle: null, onAction: null };
+  var extrasOn = false;
 
   var ICONS = {
     previous: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"></path></svg>',
     play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>',
     pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>',
-    next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path></svg>'
+    next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path></svg>',
+    stop: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6z"></path></svg>',
+    end: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6l7 6-7 6zm7 0l7 6-7 6z"></path><path d="M5 19h14v2H5z"></path></svg>',
+    replyBack: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h2v12H4zm2.5 6 6.5 6V6zm6.5 0 6.5 6V6z"></path></svg>',
+    replyForward: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6h2v12h-2zm-6.5 6L5 6v12zm6.5 0L11.5 6v12z"></path></svg>',
+    live: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 6l5 6-5 6zm6 0l5 6-5 6zm6 0l5 6-5 6z"></path><path d="M20 6h2v12h-2z"></path></svg>',
+    summary: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z"></path></svg>'
   };
 
   GV.controlIcon = function controlIcon(name) {
@@ -47,8 +56,10 @@
 
   // Pause holds new replies quiet and still moves the outline onto them.
   // Play reads them as they arrive.
-  GV.planNewReply = function planNewReply(readMode) {
+  // After Stop nothing is outlined or spoken until Play or a reply click.
+  GV.planNewReply = function planNewReply(readMode, stopHeld) {
     var mode = GV.normalizeReadMode(readMode);
+    if (stopHeld) return { speak: false, highlight: false, readMode: mode };
     return { speak: mode === "play", highlight: true, readMode: mode };
   };
 
@@ -184,6 +195,10 @@
     doc.addEventListener("dblclick", function () { cancel(); }, true);
   };
 
+  function extra(action, icon, tip) {
+    return '<button type="button" class="x" data-action="' + action + '" title="' + tip + '" aria-label="' + tip + '">' + ICONS[icon] + "</button>";
+  }
+
   function build(doc) {
     var tips = GV.controlTooltips();
     var host = doc.createElement("div");
@@ -194,12 +209,30 @@
     shadow.innerHTML =
       "<style>" +
       ":host{all:initial;}" +
+      ".grp{display:flex;gap:2px;}" +
       "button{width:28px;height:28px;padding:0;border:0;border-radius:6px;background:rgba(15,15,15,.9);color:#fff;cursor:pointer;}" +
       "button:hover,button:focus{background:rgba(15,15,15,.75);}" +
+      "button.x{display:none;}" +
+      ":host([data-extras='1']) button.x{display:block;}" +
+      ":host([data-extras='1']) .grp{opacity:.4;transition:opacity .15s;}" +
+      ":host([data-extras='1']) .grp:hover,:host([data-extras='1']) .grp:focus-within{opacity:1;}" +
       "svg{width:20px;height:20px;fill:#fff;display:block;margin:4px auto;}" +
-      "</style>" +
+      "</style><div class=\"grp\">" +
+      extra("reply-back", "replyBack", "Top of this reply; at the top, previous reply") +
+      extra("strip-back", "previous", "Back: restart this paragraph, or previous paragraph") +
       '<button type="button" data-action="play-pause" title="' + tips.play + '" aria-label="' + tips.play + '">' +
-      ICONS.play + "</button>";
+      ICONS.play + "</button>" +
+      extra("forward", "next", "Forward one paragraph") +
+      extra("reply-forward", "replyForward", "Last paragraph of this reply; at the last, next reply (End after the newest)") +
+      extra("live", "live", "Live: skip past the newest reply and read only new ones (Alt+Shift+L)") + "</div>";
+    // Keep presses on the corner away from Grok's own handlers (they bubble
+    // to the page and can re-render or re-select the reply).
+    ["pointerdown", "pointerup", "mousedown", "mouseup", "dblclick"].forEach(function (type) {
+      host.addEventListener(type, function (event) {
+        event.stopPropagation();
+        if (GV.debugCorner) GV.debugCorner(type, event);
+      });
+    });
     shadow.addEventListener("click", function (event) {
       var node = event.target;
       var button = node && node.closest ? node.closest("button") : null;
@@ -207,7 +240,17 @@
       if (!button) return;
       event.preventDefault();
       event.stopPropagation();
-      if (button.getAttribute("data-action") === "play-pause") uiToggle(handlers.onToggle);
+      var action = button.getAttribute("data-action");
+      if (GV.debugCorner) GV.debugCorner("click " + action, event);
+      // 0.4.4: Play/Pause goes the same way as |< >| >>| (onAction), with
+      // the double-press guard. onToggle stays for pages without onAction.
+      if (action === "play-pause") {
+        uiToggle(function () {
+          if (handlers.onAction) handlers.onAction("play-pause", event);
+          else if (handlers.onToggle) handlers.onToggle();
+        });
+      }
+      else if (handlers.onAction) handlers.onAction(action, event);
     });
     return host;
   }
@@ -326,7 +369,7 @@
     host.style.left = "auto";
     host.style.top = "auto";
     host.style.margin = "0";
-    host.style.width = "28px";
+    host.style.width = "auto";
     host.style.height = "28px";
     host.style.zIndex = "2147483646";
     host.style.display = "block";
@@ -340,6 +383,7 @@
     if (!doc) return null;
     ensureStyle(doc);
     handlers.onToggle = options.onToggle || handlers.onToggle || null;
+    handlers.onAction = options.onAction || handlers.onAction || null;
     stripOtherHighlights(doc, element);
     if (!element) {
       discardHost();
@@ -355,7 +399,19 @@
     }
     if (currentHost.parentNode !== element) element.appendChild(currentHost);
     placeCorner(currentHost);
+    if (extrasOn) currentHost.setAttribute("data-extras", "1");
+    else currentHost.removeAttribute("data-extras");
     paint(currentHost, options.mode || "stopped");
     return currentHost;
   };
+
+  // Show |< >| >>| beside the corner Play/Pause (reading or paused).
+  GV.setCornerExtras = function setCornerExtras(on) {
+    extrasOn = Boolean(on);
+    if (!currentHost) return;
+    if (extrasOn) currentHost.setAttribute("data-extras", "1");
+    else currentHost.removeAttribute("data-extras");
+  };
+
+  GV.cornerHost = function cornerHost() { return currentHost; };
 })(globalThis);

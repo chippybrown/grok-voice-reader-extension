@@ -10,6 +10,9 @@
   var botReadInput = document.getElementById("bot-read");
   var newBotsInput = document.getElementById("new-bots");
   var betaInput = document.getElementById("beta");
+  var autoEndInput = document.getElementById("auto-end");
+  var showBarInput = document.getElementById("show-bar");
+  var continueInput = document.getElementById("continue-replies");
   var rateInput = document.getElementById("rate");
   var rateValue = document.getElementById("rate-value");
   var statusNode = document.getElementById("status");
@@ -206,6 +209,18 @@
     save({ newBotsAutoRead: newBotsInput.checked });
   });
 
+  showBarInput.addEventListener("change", function () {
+    save({ showToolbar: showBarInput.checked });
+  });
+
+  continueInput.addEventListener("change", function () {
+    save({ continueReplies: continueInput.checked });
+  });
+
+  autoEndInput.addEventListener("change", function () {
+    save({ autoEndOnBotSwitch: autoEndInput.checked });
+  });
+
   betaInput.addEventListener("change", function () {
     save({ betaUpdates: betaInput.checked, updateCheckedAt: 0 });
     askBackground({ type: "check-update", force: true });
@@ -324,6 +339,9 @@
     debugInput.checked = stored.debug === true;
     newBotsInput.checked = stored.newBotsAutoRead !== false;
     betaInput.checked = stored.betaUpdates === true;
+    autoEndInput.checked = stored.autoEndOnBotSwitch !== false;
+    showBarInput.checked = stored.showToolbar !== false;
+    continueInput.checked = stored.continueReplies !== false;
     storedBots = stored.bots || {};
     rateInput.value = String(GV.clampRate(stored.rate));
     showRate(rateInput.value);

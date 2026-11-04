@@ -34,7 +34,10 @@ test("match list is valid and copied into the manifest", () => {
   assert.equal(manifest.content_scripts[0].all_frames, true);
   assert.equal(manifest.content_scripts[0].match_about_blank, true);
   assert.equal(manifest.content_scripts[0].match_origin_as_fallback, true);
-  assert.equal(manifest.version, "0.4.0");
+  assert.equal(manifest.version, "0.4.8");
+  assert.equal(manifest.version_name, "0.4.8-WA0UWH");
+  assert.ok(manifest.content_scripts[0].js.indexOf("src/toolbar.js") > manifest.content_scripts[0].js.indexOf("src/controls.js"));
+  assert.ok(manifest.content_scripts[0].js.indexOf("src/toolbar.js") < manifest.content_scripts[0].js.indexOf("src/content.js"));
   assert.equal(manifest.commands.previous.suggested_key.default, GV.SHORTCUTS.previous);
   assert.equal(manifest.commands["play-pause"].suggested_key.default, GV.SHORTCUTS.playPause);
   assert.equal(manifest.commands.next.suggested_key.default, GV.SHORTCUTS.next);
@@ -46,6 +49,7 @@ test("match list is valid and copied into the manifest", () => {
     "src/playback.js",
     "src/bots.js",
     "src/controls.js",
+    "src/toolbar.js",
     "src/piper.js",
     "src/content.js"
   ]);
