@@ -30,7 +30,7 @@ Refresh the Grok tab, then click the page once.
 
 ## Playing a reply
 
-Only one reply is outlined. Play mode is green. Pause mode is light orange, including a new reply the outline moves to while paused. A **Play/Pause** button sits in the lower-right corner of that box. Hold the pointer on it to see Play or Pause.
+Only one reply is outlined. Play mode is green. Pause mode is light orange, including a new reply the outline moves to while paused. A **Play/Pause** button sits in the lower-right corner of that box. While it reads or is paused, more buttons join it there (see below). Hold the pointer on any button to see what it does.
 
 Click a different reply to move the outline there and read that reply from the beginning. That turns Play on. The outline and the button leave every other reply.
 
@@ -42,10 +42,64 @@ The sentence being read is tinted yellow-green. If you scroll away, the page wai
 
 **Alt+Shift+P** plays or pauses. **Alt+Left** and **Alt+Right** go to the previous or next reply from the keyboard.
 
+## Voice controls
+
+### Corner buttons
+
+While a reply is being read or is paused, the lower-right corner of the outlined reply shows six small buttons. They are faded until you hold the pointer over them.
+
+| Button | What it does |
+| --- | --- |
+| **\|<<** | Top of this reply. Already at the top, the top of the previous reply. |
+| **\|<** | Back one paragraph. Partway into a paragraph, it starts that paragraph over. |
+| **\|\|/>** | Pause or Play. |
+| **>\|** | Forward one paragraph. |
+| **>>\|** | Last paragraph of this reply. Already there, the next reply. |
+| **>>>\|** | Live: skip past the newest reply. Nothing older is read. The next new reply is read. |
+
+### On-page bar
+
+A small bar floats on the page with **Back**, **Pause/Play**, **Forward**, **Stop**, and **End**, plus a status light (green watching, blue reading, orange paused, red stopped). Drag it by its dots. The **–** button folds it to a dot. Shift+click **Back** or **Forward** works like **|<<** or **>>|**.
+
+**Stop** goes quiet and stays quiet, even for new replies, until you press Play or click a reply. **End** goes quiet but keeps watching, so the next new reply is read.
+
+### Reading paragraph by paragraph
+
+A blue mark shows the paragraph being read. Reading goes one paragraph at a time and the mark moves along.
+
+Reading keeps going until you press **Stop**. At the end of a reply it moves on to the next one, all the way to the newest. Then it waits and reads each new reply as it arrives. A new reply that arrives while older ones are being read waits its turn. Pause and Play keep your place.
+
+This is meant to be hands-free, for example in a car: press **|<** a few times and listen.
+
+### Keys
+
+| Keys | What they do |
+| --- | --- |
+| **Alt+Shift+P** | Play or pause |
+| **Alt+Left** / **Alt+Right** | Previous or next reply |
+| **Alt+Shift+,** / **Alt+Shift+.** | Back or forward one paragraph |
+| **Alt+Shift+S** | Stop |
+| **Alt+Shift+E** | End |
+| **Alt+Shift+L** | Live (same as **>>>\|**) |
+| **Alt+Shift+H** | Fold or show the bar |
+
+The Alt+Shift keys other than **Alt+Shift+P** work only while the Grok tab has focus.
+
+### Popup switches
+
+- **Show on-page control bar** shows or hides the bar and the extra corner buttons. The keys keep working.
+- **Continue to next reply** (on by default) keeps reading into the next reply. Off, reading stops at the end of each reply.
+- **Auto End when switching bots** does an **End** when you open a different bot.
+- **Show what it detects** turns on debug outlines and console lines, which help when something does not work.
+
 ## Each bot
 
 Click the Grok Voice Reader icon. The popup has a voice and an on or off switch for the bot you have open. **Voice for this bot** picks the voice. **Read this bot aloud** turns reading on or off for that bot.
 
 If the browser has few English voices, the popup offers free Piper voices. A voice downloads once and stays on this computer. It shows up in the same voice list.
+
+## Building a test zip
+
+From `chrome-extension/`, run `packaging/build_dev_zip.sh [out.zip]`. It zips the add-on and adds a `Rev_<version>.txt` file with the version, commit, and build time. Unzip it and use **Load unpacked**.
 
 Privacy policy: [PRIVACY.md](PRIVACY.md).
