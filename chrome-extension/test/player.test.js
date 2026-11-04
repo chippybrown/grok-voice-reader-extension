@@ -629,6 +629,19 @@ test("update notice is for unpacked installs and uses releases/latest", () => {
   assert.equal(newer.version, "0.4.1");
   assert.equal(newer.url, "https://example/041.zip");
   assert.equal(GV.noticeFromLatest({ tag_name: "v0.9.0", prerelease: true, html_url: "https://example/beta" }, "0.4.0"), null);
+  assert.equal(GV.parseExtensionVersion("0.4.8-WA0UWH"), null);
+  assert.equal(GV.noticeFromLatest({
+    tag_name: "v0.4.8",
+    html_url: "https://example/048",
+    assets: [{ name: "Grok-Voice-Reader-Extension.zip", browser_download_url: "https://example/048.zip" }]
+  }, "0.4.8"), null);
+  const after048 = GV.noticeFromLatest({
+    tag_name: "v0.4.9",
+    html_url: "https://example/049",
+    assets: [{ name: "Grok-Voice-Reader-Extension.zip", browser_download_url: "https://example/049.zip" }]
+  }, "0.4.8");
+  assert.equal(after048.version, "0.4.9");
+  assert.equal(after048.url, "https://example/049.zip");
   assert.equal(GV.updateCheckDue(0, 10), true);
   assert.equal(GV.updateCheckDue(1000, 1000 + GV.UPDATE_INTERVAL_MS - 1), false);
 });

@@ -1,6 +1,8 @@
 // Decide whether a GitHub release is a newer extension build.
-// Tags that do not start with ext-v are ignored. Prereleases are ignored
-// unless the beta switch is on. Drafts are ignored.
+// The live check uses /releases/latest (a tag such as v0.4.8) and compares
+// it with manifest.version, which stays a plain number such as 0.4.8.
+// pickExtensionUpdate still looks only at ext-v tags. Prereleases are
+// ignored unless the beta switch is on. Drafts are ignored.
 (function (root) {
   "use strict";
 
@@ -62,7 +64,9 @@
     return !(manifest && manifest.update_url);
   };
 
-  // /releases/latest is the newest stable tag, such as v0.4.0.
+  // /releases/latest is the newest stable tag, such as v0.4.8.
+  // Pass manifest.version (0.4.8), not version_name (0.4.8-WA0UWH).
+  // A suffix does not parse, and that would make every release look newer.
   GV.noticeFromLatest = function noticeFromLatest(release, current) {
     if (!release || release.draft || release.prerelease) return null;
     var parts = GV.parseExtensionVersion(release.tag_name);
