@@ -1,6 +1,10 @@
 # Grok Voice Reader
 
-A browser add-on that reads a new Grok reply out loud. It works in the tab you have open, including a Grok Bot chat at grok.com/bot. This build is **0.4.0**. The popup shows that number next to the title.
+[![Download the newest version](https://img.shields.io/badge/Download%20the%20newest%20version-brightgreen?style=for-the-badge)](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest/download/Grok-Voice-Reader-Extension.zip)
+
+That button is always the newest release.
+
+A browser add-on that reads a new Grok reply out loud. It works in the tab you have open, including a Grok Bot chat at grok.com/bot. The popup shows the version next to the title.
 
 You need Chrome, Edge, or Brave, and a speech voice already installed on the computer. Those browsers use the voices that come with Windows or macOS. In Edge, Jenny Online (Natural) is one of those voices.
 
@@ -76,4 +80,4 @@ npm install
 npm test
 ```
 
-URL patterns live in `src/config.js` and must match `manifest.json`. A release tag named `ext-v<version>` (for example `ext-v0.2.3`) builds `Grok-Voice-Reader-Extension.zip` and publishes it. That tag does not publish the desktop app, and it is not marked Latest. The desktop updater uses `/releases/latest`. Point the download button at the top of the main README at the new zip when you publish.
+URL patterns live in `src/config.js` and must match `manifest.json`. Download buttons use `/releases/latest`, so they follow the newest release. Do not point them at a numbered release.

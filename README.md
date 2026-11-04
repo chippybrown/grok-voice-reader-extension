@@ -1,12 +1,16 @@
 # Grok Voice Reader
 
-[![Coming soon to the Chrome Web Store](https://img.shields.io/badge/Coming%20soon%20to%20the%20Chrome%20Web%20Store-brightgreen?style=for-the-badge)](#coming-soon)
+[![Download the newest version](https://img.shields.io/badge/Download%20the%20newest%20version-brightgreen?style=for-the-badge)](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest/download/Grok-Voice-Reader-Extension.zip)
 
-<!-- TODO: replace the badge link above with the Chrome Web Store listing URL after it is approved. -->
+That button is always the newest release. It follows [releases/latest](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest), so it does not stay on an old version.
 
 This add-on reads a new Grok reply out loud. It works in Chrome, Edge, and Brave.
 
 ## Install from the Chrome Web Store
+
+[![Coming soon to the Chrome Web Store](https://img.shields.io/badge/Coming%20soon%20to%20the%20Chrome%20Web%20Store-brightgreen?style=for-the-badge)](#coming-soon)
+
+<!-- TODO: replace the badge link above with the Chrome Web Store listing URL after it is approved. -->
 
 <a id="coming-soon"></a>
 
@@ -18,15 +22,13 @@ This add-on reads a new Grok reply out loud. It works in Chrome, Edge, and Brave
 
 ## Install from GitHub
 
-[![Download](https://img.shields.io/badge/Download-brightgreen?style=for-the-badge)](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest)
-
 On Windows, run [Grok-Voice-Reader-Setup.exe](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest/download/Grok-Voice-Reader-Setup.exe). It copies the add-on to `%LOCALAPPDATA%\Grok Voice Reader\extension`.
 
 On Linux, run [Grok-Voice-Reader-x86_64.AppImage](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest/download/Grok-Voice-Reader-x86_64.AppImage). It copies the add-on to `~/.local/share/grok-voice-reader/extension`.
 
 Or download [Grok-Voice-Reader-Extension.zip](https://github.com/chippybrown/grok-voice-reader-extension/releases/latest/download/Grok-Voice-Reader-Extension.zip), unzip it, turn on **Developer mode**, click **Load unpacked**, and pick the folder.
 
-Refresh the Grok tab, then click the page once.
+Each of those links uses `releases/latest`. Refresh the Grok tab, then click the page once.
 
 ## Playing a reply
 
